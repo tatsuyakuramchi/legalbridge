@@ -1,0 +1,97 @@
+{
+  "version": 2,
+  "activeProfileId": "publishing_bulk",
+  "profiles": [
+    {
+      "id": "planning",
+      "label": "企画発注書",
+      "settings": {
+        "version": 1,
+        "projectTitleSource": "filename",
+        "projectTitleManualValue": "",
+        "vendorLookupColumn": "作家名",
+        "vendorCodeColumn": "vendorID",
+        "itemNameColumn": "カード名",
+        "completionDateColumn": "完成",
+        "completionDateFallbackColumn": "完成希望",
+        "finalDeadlineColumn": "B〆",
+        "quantityColumn": "",
+        "unitPriceColumn": "",
+        "amountColumn": "管理費込み",
+        "amountFallbackColumn": "原稿料",
+        "detailColumns": [
+          "カードNo.",
+          "カード名",
+          "色",
+          "カード種類",
+          "キャラ備考",
+          "特徴",
+          "画角",
+          "イラスト指定",
+          "使用用途",
+          "備考"
+        ],
+        "constants": {
+          "category": "イラスト制作",
+          "payMethod": "一括払い",
+          "rightsLabel": "発注書",
+          "transferFee": "報酬に含む",
+          "transferFeePayer": "発注者",
+          "deliveryDateLabel": "完成",
+          "paymentDateLabel": "完成の翌月20日払い",
+          "finalDeadlineFallback": "別途協議"
+        },
+        "defaults": {
+          "specialTerms": "",
+          "remarks": "",
+          "acceptMethod": "",
+          "acceptReplyDueDate": ""
+        }
+      }
+    },
+    {
+      "id": "publishing_bulk",
+      "label": "出版一括発注書",
+      "settings": {
+        "version": 1,
+        "projectTitleSource": "manual",
+        "projectTitleManualValue": "出版一括発注書",
+        "vendorLookupColumn": "作家名",
+        "vendorCodeColumn": "vendorID",
+        "itemNameColumn": "書名",
+        "completionDateColumn": "初校締切",
+        "completionDateFallbackColumn": "再校締切",
+        "finalDeadlineColumn": "校了予定",
+        "quantityColumn": "",
+        "unitPriceColumn": "",
+        "amountColumn": "発注金額",
+        "amountFallbackColumn": "原稿料",
+        "detailColumns": [
+          "ISBN",
+          "書名",
+          "巻数",
+          "判型",
+          "ページ数",
+          "作業内容",
+          "備考"
+        ],
+        "constants": {
+          "category": "出版制作",
+          "payMethod": "一括",
+          "rightsLabel": "出版一括発注書",
+          "transferFee": "報酬に含む",
+          "transferFeePayer": "発注者",
+          "deliveryDateLabel": "初校締切",
+          "paymentDateLabel": "校了月の翌月20日払い",
+          "finalDeadlineFallback": "別途協議"
+        },
+        "defaults": {
+          "specialTerms": "",
+          "remarks": "出版制作進行に準じて納品・修正対応を行うものとする。",
+          "acceptMethod": "",
+          "acceptReplyDueDate": ""
+        }
+      }
+    }
+  ]
+}

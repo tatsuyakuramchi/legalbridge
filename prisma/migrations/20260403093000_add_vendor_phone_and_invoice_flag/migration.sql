@@ -1,0 +1,3 @@
+ALTER TABLE "Vendor"
+ADD COLUMN "phone" TEXT,
+ADD COLUMN "isInvoiceIssuer" BOOLEAN NOT NULL DEFAULT false;

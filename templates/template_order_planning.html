@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>企画発注書</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+
+    :root {
+      --ink: #111;
+      --muted: #555;
+      --line: #cfcfcf;
+      --panel: #f3f3f3;
+      --panel2: #fafafa;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .title-box h1 {
+      margin: 0;
+      font-size: 20pt;
+      letter-spacing: 1.5px;
+    }
+
+    .doc-info {
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.7;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .party-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .vendor-section {
+      font-size: 11pt;
+    }
+
+    .vendor-name {
+      display: inline-block;
+      min-width: 250px;
+      padding-bottom: 2px;
+      font-size: 13pt;
+      font-weight: 800;
+      border-bottom: 1px solid var(--ink);
+    }
+
+    .company-section {
+      padding: 10px 12px;
+      font-size: 9pt;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+    }
+
+    .section-mark {
+      display: inline-block;
+      margin-top: 12px;
+      margin-bottom: 6px;
+      padding: 2px 0 2px 10px;
+      font-size: 10pt;
+      font-weight: 800;
+      border-left: 4px solid var(--ink);
+    }
+
+    table.summary,
+    table.items,
+    table.sign-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.summary {
+      margin-bottom: 12px;
+      font-size: 10pt;
+    }
+
+    table.summary th,
+    table.summary td,
+    table.items th,
+    table.items td,
+    table.sign-table th,
+    table.sign-table td {
+      padding: 7px 8px;
+      vertical-align: top;
+      border: 1px solid var(--line);
+    }
+
+    table.summary th,
+    table.sign-table th,
+    table.items th {
+      background: var(--panel);
+      font-weight: 800;
+      text-align: left;
+    }
+
+    table.summary th {
+      width: 26%;
+    }
+
+    table.items {
+      margin-top: 4px;
+      font-size: 9pt;
+    }
+
+    table.items thead {
+      display: table-header-group;
+    }
+
+    table.items th {
+      text-align: center;
+    }
+
+    table.items tr,
+    .terms-section,
+    .callout {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .right { text-align: right; }
+    .center { text-align: center; }
+
+    .item-labels {
+      margin-bottom: 4px;
+    }
+
+    .category-label,
+    .rights-label,
+    .delivery-date-badge,
+    .pay-method-badge {
+      display: inline-block;
+      white-space: nowrap;
+      border-radius: 2px;
+    }
+
+    .category-label {
+      margin-right: 4px;
+      padding: 1px 5px;
+      font-size: 7.5pt;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .rights-label {
+      padding: 1px 5px;
+      font-size: 7.5pt;
+      color: #7c3aed;
+      background: #f3e8ff;
+      border: 1px solid #c4b5fd;
+    }
+
+    .delivery-date-badge {
+      margin-top: 4px;
+      padding: 1px 6px;
+      font-size: 8pt;
+      color: #1e40af;
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+    }
+
+    .pay-method-badge {
+      padding: 2px 6px;
+      font-size: 7.5pt;
+      font-weight: 800;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--ink);
+    }
+
+    .item-name-block {
+      display: inline-block;
+      margin-bottom: 3px;
+      font-size: 10pt;
+      font-weight: 800;
+    }
+
+    .item-spec-block {
+      margin-top: 6px;
+      padding-top: 4px;
+      font-size: 8.5pt;
+      color: var(--muted);
+      white-space: pre-wrap;
+      border-top: 1px dashed var(--line);
+    }
+
+    .amount-note,
+    .small-muted {
+      font-size: 8.5pt;
+      color: var(--muted);
+    }
+
+    .total-amount {
+      font-size: 13pt;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .terms-section {
+      margin-top: 12px;
+      padding: 10px;
+      font-size: 9pt;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .terms-title {
+      margin-bottom: 6px;
+      padding-bottom: 3px;
+      font-weight: 900;
+      border-bottom: 1px solid var(--ink);
+    }
+
+    .callout {
+      margin-top: 8px;
+      padding: 8px 10px;
+      font-size: 9pt;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--ink);
+    }
+
+    .sign-box {
+      height: 22mm;
+      margin-top: 4px;
+      border: 1px dashed var(--line);
+    }
+
+    @media print {
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <div class="title-box"><h1>発 注 書</h1></div>
+    <div class="doc-info">
+      発注番号: <strong>{{ORDER_NO}}</strong><br>
+      発行日: {{ORDER_DATE_YEAR}}年{{ORDER_DATE_MONTH}}月{{ORDER_DATE_DAY}}日
+    </div>
+  </div>
+
+  <div class="party-grid">
+    <div class="vendor-section">
+      <div class="vendor-name">{{VENDOR_NAME}} <span style="font-size:11pt; font-weight:normal;">{{VENDOR_SUFFIX}}</span></div>
+      {{#if VENDOR_REPRESENTATIVE_SAMA}}
+      <div style="margin-top:6px; font-size:9pt;">{{VENDOR_REPRESENTATIVE_SAMA}}</div>
+      {{/if}}
+      {{#if VENDOR_ADDRESS}}
+      <div style="margin-top:8px; font-size:9pt; color:var(--muted);">{{VENDOR_ADDRESS}}</div>
+      {{/if}}
+      {{#if VENDOR_EMAIL}}
+      <div style="margin-top:4px; font-size:9pt; color:var(--muted);">E-mail: {{VENDOR_EMAIL}}</div>
+      {{/if}}
+      {{#if VENDOR_CONTACT_NAME}}
+      <div style="margin-top:6px; font-size:9pt;">
+        {{#if VENDOR_CONTACT_DEPARTMENT}}{{VENDOR_CONTACT_DEPARTMENT}} {{/if}}{{VENDOR_CONTACT_NAME}} 様
+      </div>
+      {{/if}}
+      <div style="margin-top:10px;">下記内容にて発注いたします。ご確認をお願い申し上げます。</div>
+      <div style="margin-top:14px; font-size:10pt;">件名: <strong>{{PROJECT_TITLE}}</strong></div>
+    </div>
+
+    <div class="company-section">
+      <div style="font-weight:900; font-size:11pt; margin-bottom:5px;">{{PARTY_A_NAME}}</div>
+      {{PARTY_A_ADDRESS}}<br>
+      {{PARTY_A_REP}}
+      {{#if STAFF_NAME}}
+      <div style="margin-top:8px; padding-top:6px; border-top:1px dashed var(--line); font-size:9pt;">
+        {{#if STAFF_DEPARTMENT}}<strong>部署:</strong> {{STAFF_DEPARTMENT}}<br>{{/if}}
+        <strong>担当:</strong> {{STAFF_NAME}}<br>
+        {{#if STAFF_PHONE}}TEL: {{STAFF_PHONE}}<br>{{/if}}
+        {{#if STAFF_EMAIL}}E-mail: {{STAFF_EMAIL}}{{/if}}
+      </div>
+      {{/if}}
+    </div>
+  </div>
+
+  <div class="section-mark">■ 発注概要</div>
+  <table class="summary">
+    <tr>
+      <th>発注合計金額（税抜）</th>
+      <td>
+        <div class="total-amount">¥ {{formatCurrency grandTotalExTax}}</div>
+        <div class="amount-note">※ 消費税等の精算は、支払通知書にて行います。</div>
+      </td>
+    </tr>
+    <tr>
+      <th>初稿納期</th>
+      <td>{{FIRST_DRAFT_DEADLINE}}</td>
+    </tr>
+    <tr>
+      <th>最終納期</th>
+      <td>{{FINAL_DEADLINE}}</td>
+    </tr>
+    <tr>
+      <th>支払条件</th>
+      <td>{{PAYMENT_TERMS}}</td>
+    </tr>
+    {{#if MASTER_CONTRACT_REF}}
+    <tr>
+      <th>基本契約番号</th>
+      <td>{{MASTER_CONTRACT_REF}}</td>
+    </tr>
+    {{/if}}
+  </table>
+
+  <div class="section-mark">■ 業務明細</div>
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:6mm;">No</th>
+        <th>業務内容・成果物</th>
+        <th style="width:20mm;">支払方法</th>
+        <th style="width:15mm;">数量</th>
+        <th style="width:22mm;">単価</th>
+        <th style="width:24mm;">金額（税抜）</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each items}}
+      <tr>
+        <td class="center">{{add @index 1}}</td>
+        <td>
+          <div class="item-labels">
+            {{#if category}}<span class="category-label">{{category}}</span>{{/if}}
+            {{#if rightsLabel}}<span class="rights-label">{{rightsLabel}}</span>{{/if}}
+          </div>
+          <div class="item-name-block">{{item_name}}</div>
+          {{#if deliveryDateStr}}
+          <div><span class="delivery-date-badge">納期: {{deliveryDateStr}}</span></div>
+          {{/if}}
+          {{#if detailText}}
+          <div class="item-spec-block">{{detailText}}</div>
+          {{/if}}
+        </td>
+        <td class="center">
+          <span class="pay-method-badge">{{payment_method_display}}</span>
+        </td>
+        <td class="right">{{qty}}</td>
+        <td class="right">¥ {{formatCurrency unitPrice}}</td>
+        <td class="right">¥ {{formatCurrency amount}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="terms-section">
+    <div class="terms-title">条件・備考</div>
+    {{#if SPECIAL_TERMS}}
+    <div><strong>特約事項:</strong> {{SPECIAL_TERMS}}</div>
+    {{/if}}
+    {{#if REMARKS}}
+    <div style="margin-top:6px;"><strong>備考:</strong> {{REMARKS}}</div>
+    {{/if}}
+    <div style="margin-top:6px;"><strong>振込手数料負担:</strong> {{TRANSFER_FEE_PAYER}}</div>
+    {{#if BANK_INFO}}
+    <div style="margin-top:6px;"><strong>支払先口座情報:</strong> {{BANK_INFO}}</div>
+    {{else}}
+      {{#if BANK_NAME}}
+      <div style="margin-top:6px;">
+        <strong>支払先口座情報:</strong>
+        {{BANK_NAME}} {{BRANCH_NAME}} / {{ACCOUNT_TYPE}} / {{ACCOUNT_NUMBER}} / {{ACCOUNT_HOLDER_KANA}}
+      </div>
+      {{/if}}
+    {{/if}}
+    {{#if INVOICE_REGISTRATION_NUMBER}}
+    <div style="margin-top:6px;"><strong>適格請求書登録番号:</strong> {{INVOICE_REGISTRATION_NUMBER}}</div>
+    {{/if}}
+  </div>
+
+  <div class="callout">
+    本発注書は企画発注時点の条件整理を目的としたものです。詳細条件は個別協議または別途契約書に従います。
+  </div>
+
+  {{#if SHOW_SIGN_SECTION}}
+  <div class="section-mark">■ 承諾欄</div>
+  <table class="sign-table">
+    <tr>
+      <th>承諾方法</th>
+      <td>{{ACCEPT_METHOD}}</td>
+    </tr>
+    <tr>
+      <th>承諾期限</th>
+      <td>{{ACCEPT_REPLY_DUE_DATE}}</td>
+    </tr>
+    <tr>
+      <th>受託者記入欄</th>
+      <td>
+        {{#if VENDOR_ACCEPT_DATE}}承諾日: {{VENDOR_ACCEPT_DATE}}<br>{{/if}}
+        {{#if VENDOR_ACCEPT_NAME}}承諾者: {{VENDOR_ACCEPT_NAME}}{{/if}}
+        <div class="sign-box"></div>
+      </td>
+    </tr>
+  </table>
+  {{/if}}
+</body>
+</html>

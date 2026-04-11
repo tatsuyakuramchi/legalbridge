@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>発注書</title>
+  <style>
+    @page { size: A4; margin: 12mm 15mm; }
+
+    :root {
+      --ink: #111;
+      --muted: #555;
+      --line: #cfcfcf;
+      --panel: #f3f3f3;
+      --panel2: #fafafa;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+
+    .title-box h1 {
+      font-size: 20pt;
+      margin: 0;
+      letter-spacing: 1.5px;
+    }
+
+    .doc-info {
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.6;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .party-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .vendor-section {
+      font-size: 10pt;
+      min-width: 0;
+    }
+
+    .vendor-name {
+      font-size: 13pt;
+      font-weight: 800;
+      border-bottom: 1px solid var(--ink);
+      display: inline-block;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      padding-bottom: 2px;
+    }
+
+    .company-section {
+      font-size: 9pt;
+      background: var(--panel2);
+      padding: 10px;
+      border: 1px solid var(--line);
+      overflow-wrap: anywhere;
+      width: 300px;
+      justify-self: end;
+      margin-top: 2px;
+    }
+
+    .section-mark {
+      color: var(--ink);
+      padding: 2px 0 2px 10px;
+      font-weight: 800;
+      font-size: 10pt;
+      margin-top: 12px;
+      margin-bottom: 6px;
+      display: inline-block;
+      border-left: 4px solid var(--ink);
+    }
+
+    table.summary,
+    table.items,
+    table.sign-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.summary {
+      margin-bottom: 12px;
+      font-size: 10pt;
+    }
+
+    table.summary th,
+    table.summary td,
+    table.items th,
+    table.items td,
+    table.sign-table th,
+    table.sign-table td {
+      border: 1px solid var(--line);
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+
+    table.summary th,
+    table.sign-table th,
+    table.items th {
+      background: var(--panel);
+      text-align: left;
+    }
+
+    table.summary th {
+      width: 26%;
+    }
+
+    table.items {
+      margin-top: 4px;
+      font-size: 9pt;
+    }
+
+    table.items th {
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .right { text-align: right; }
+    .center { text-align: center; }
+
+    .item-name-block {
+      font-weight: 800;
+      font-size: 10pt;
+      margin-bottom: 3px;
+      display: inline-block;
+    }
+
+    .item-spec-block {
+      font-size: 8.5pt;
+      color: var(--muted);
+      white-space: pre-wrap;
+      border-top: 1px dashed var(--line);
+      padding-top: 4px;
+      margin-top: 4px;
+    }
+
+    .pay-method-badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 800;
+      border: 1px solid var(--ink);
+      background: #fff;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .category-label {
+      display: inline-block;
+      font-size: 7.5pt;
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 2px;
+      color: var(--ink);
+      white-space: nowrap;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    .amount-note,
+    .small-muted {
+      font-size: 8.5pt;
+      color: var(--muted);
+    }
+
+    .total-amount {
+      font-size: 13pt;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .terms-section,
+    .callout {
+      margin-top: 12px;
+      font-size: 9pt;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .terms-section {
+      padding: 10px;
+    }
+
+    .terms-title {
+      font-weight: 900;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 3px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--ink);
+      padding: 8px 10px;
+    }
+
+    .sign-box {
+      height: 22mm;
+      border: 1px dashed var(--line);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-row">
+    <div class="title-box">
+      <h1>発 注 書</h1>
+    </div>
+    <div class="doc-info">
+      発注番号: <strong>{{ORDER_NO}}</strong><br>
+      発行日: {{ORDER_DATE_YEAR}}年{{ORDER_DATE_MONTH}}月{{ORDER_DATE_DAY}}日
+    </div>
+  </div>
+
+  <div class="party-grid">
+    <div class="vendor-section">
+      <div class="vendor-name">{{VENDOR_NAME}}{{#if VENDOR_SUFFIX}} {{VENDOR_SUFFIX}}{{/if}}</div>
+      {{#if VENDOR_REPRESENTATIVE_SAMA}}
+      <div style="margin-top:6px; font-size:9pt;">{{VENDOR_REPRESENTATIVE_SAMA}}</div>
+      {{/if}}
+      {{#if VENDOR_ADDRESS}}
+      <div style="margin-top:8px; font-size:9pt; color:var(--muted);">{{VENDOR_ADDRESS}}</div>
+      {{/if}}
+      {{#if VENDOR_EMAIL}}
+      <div style="margin-top:4px; font-size:9pt; color:var(--muted);">E-mail: {{VENDOR_EMAIL}}</div>
+      {{/if}}
+      {{#if VENDOR_CONTACT_NAME}}
+      <div style="margin-top:6px; font-size:9pt;">
+        {{#if VENDOR_CONTACT_DEPARTMENT}}{{VENDOR_CONTACT_DEPARTMENT}} {{/if}}{{VENDOR_CONTACT_NAME}} 様
+      </div>
+      {{/if}}
+      <div style="margin-top:10px;">下記内容にて発注いたします。ご確認をお願いいたします。</div>
+      <div style="margin-top:14px; font-size:10pt;">件名: <strong>{{PROJECT_TITLE}}</strong></div>
+    </div>
+
+    <div class="company-section">
+      <div style="font-size:8pt; font-weight:800; color:var(--muted); margin-bottom:4px;">発注者</div>
+      <div style="font-weight:900; font-size:12pt; margin-bottom:5px;">{{PARTY_A_NAME}}</div>
+      <div style="white-space: pre-wrap;">{{PARTY_A_ADDRESS}}</div>
+      <div style="margin-top:2px;">{{PARTY_A_REP}}</div>
+      {{#if STAFF_NAME}}
+      <div style="margin-top:8px; padding-top:6px; border-top:1px dashed var(--line); font-size:9pt;">
+        {{#if STAFF_DEPARTMENT}}<strong>部署:</strong> {{STAFF_DEPARTMENT}}<br>{{/if}}
+        <strong>担当:</strong> {{STAFF_NAME}}<br>
+        {{#if STAFF_PHONE}}TEL: {{STAFF_PHONE}}<br>{{/if}}
+        {{#if STAFF_EMAIL}}E-mail: {{STAFF_EMAIL}}{{/if}}
+      </div>
+      {{/if}}
+    </div>
+  </div>
+
+  <div class="section-mark">■ 発注概要</div>
+  <table class="summary">
+    <tr>
+      <th>発注合計金額（税抜）</th>
+      <td>
+        <div class="total-amount">¥ {{formatCurrency grandTotalExTax}}</div>
+        <div class="amount-note">※ 消費税等の精算は、支払通知または請求処理にて行います。</div>
+      </td>
+    </tr>
+    <tr>
+      <th>納期</th>
+      <td>{{summaryDeliveryDate}}</td>
+    </tr>
+    <tr>
+      <th>支払条件</th>
+      <td>{{summaryPaymentTerms}}</td>
+    </tr>
+  </table>
+
+  <div class="section-mark">■ 業務明細</div>
+  <table class="items">
+    <thead>
+      <tr>
+        <th style="width:6mm;">No</th>
+        <th>業務内容・成果物</th>
+        <th style="width:18mm;">支払方法</th>
+        <th style="width:15mm;">数量</th>
+        <th style="width:22mm;">単価</th>
+        <th style="width:24mm;">金額（税抜）</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#if items}}
+      {{#each items}}
+      <tr>
+        <td class="center">{{add @index 1}}</td>
+        <td>
+          {{#if category}}<span class="category-label">{{category}}</span>{{/if}}
+          <div class="item-name-block">{{item_name}}</div>
+          {{#if detailText}}<div class="item-spec-block">{{detailText}}</div>{{/if}}
+        </td>
+        <td class="center"><span class="pay-method-badge">{{payment_method_display}}</span></td>
+        <td class="right">{{qty}}</td>
+        <td class="right">¥ {{formatCurrency unitPrice}}</td>
+        <td class="right">¥ {{formatCurrency amount}}</td>
+      </tr>
+      {{/each}}
+      {{else}}
+      <tr>
+        <td class="center">1</td>
+        <td><div class="item-name-block">{{ITEM_NAME}}</div></td>
+        <td class="center"><span class="pay-method-badge">{{PAYMENT_METHOD}}</span></td>
+        <td class="right">1</td>
+        <td class="right">-</td>
+        <td class="right">¥ {{formatCurrency grandTotalExTax}}</td>
+      </tr>
+      {{/if}}
+      <tr>
+        <td colspan="5" class="right"><strong>小計（税抜）</strong></td>
+        <td class="right"><strong>¥ {{formatCurrency grandTotalExTax}}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  {{#if SPECIAL_TERMS}}
+  <div class="terms-section">
+    <div class="terms-title">特約事項</div>
+    <div style="white-space: pre-wrap;">{{SPECIAL_TERMS}}</div>
+  </div>
+  {{/if}}
+
+  {{#if REMARKS}}
+  <div class="terms-section">
+    <div class="terms-title">備考</div>
+    {{#if REMARKS_FIXED}}
+    <div style="white-space: pre-wrap;">{{REMARKS_FIXED}}</div>
+    {{/if}}
+    {{#if REMARKS_FREE}}
+    <div style="white-space: pre-wrap; margin-top:{{#if REMARKS_FIXED}}8px{{else}}0{{/if}};">{{REMARKS_FREE}}</div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if HAS_BASE_CONTRACT}}
+  <div class="callout">
+    <strong>準拠契約:</strong> 本発注書は、甲乙間で締結済みの基本契約（{{MASTER_CONTRACT_REF}}）に基づき発行されるものであり、
+    本発注書に定めのない事項については当該基本契約の定めによるものとします。
+  </div>
+  {{else}}
+  <div class="callout">
+    <strong>適用約款:</strong> 本発注書には別紙「業務委託基本契約約款（スポット契約用）」が適用されます。
+    受注者は本発注書を承諾することにより、当該約款にも同意したものとみなします。
+  </div>
+  {{/if}}
+
+  {{#if BANK_NAME}}
+  <div class="terms-section">
+    <div class="terms-title">支払先情報</div>
+    <table class="summary" style="margin-bottom:6px;">
+      <tr><th>金融機関</th><td>{{BANK_NAME}} {{BRANCH_NAME}}</td></tr>
+      <tr><th>口座</th><td>{{ACCOUNT_TYPE}} {{ACCOUNT_NUMBER}}</td></tr>
+      <tr><th>口座名義</th><td>{{ACCOUNT_HOLDER_KANA}}</td></tr>
+      {{#if INVOICE_REGISTRATION_NUMBER}}
+      <tr><th>適格請求書発行事業者</th><td>登録番号: T{{INVOICE_REGISTRATION_NUMBER}}</td></tr>
+      {{/if}}
+    </table>
+    {{#if TRANSFER_FEE_PAYER}}
+    <div class="small-muted">※ 振込手数料: {{TRANSFER_FEE_PAYER}}負担</div>
+    {{/if}}
+  </div>
+  {{else}}
+  {{#if BANK_INFO}}
+  <div class="terms-section">
+    <div class="terms-title">支払先情報</div>
+    <div style="white-space: pre-wrap;">{{BANK_INFO}}</div>
+    {{#if TRANSFER_FEE_PAYER}}
+    <div class="small-muted" style="margin-top:4px;">※ 振込手数料: {{TRANSFER_FEE_PAYER}}負担</div>
+    {{/if}}
+  </div>
+  {{/if}}
+  {{/if}}
+
+  {{#if SHOW_ORDER_SIGN_SECTION}}
+  <div class="section-mark">■ 署名欄</div>
+  <table class="sign-table" style="margin-top: 6px;">
+    <tr>
+      <th style="width:50%;">発注者（甲）</th>
+      <th style="width:50%;">受注者（乙）</th>
+    </tr>
+    <tr>
+      <td>
+        <div>{{PARTY_A_NAME}}</div>
+        <div class="small-muted">{{PARTY_A_ADDRESS}}</div>
+        <div style="margin-top:4px;">{{PARTY_A_REP}}</div>
+        <div class="sign-box"></div>
+      </td>
+      <td>
+        <div>{{VENDOR_NAME}}</div>
+        <div class="small-muted">{{VENDOR_ADDRESS}}</div>
+        <div style="margin-top:4px;">{{#if VENDOR_REPRESENTATIVE_SAMA}}{{VENDOR_REPRESENTATIVE_SAMA}}{{else}}{{VENDOR_CONTACT_NAME}}{{/if}}</div>
+        <div class="sign-box"></div>
+      </td>
+    </tr>
+  </table>
+  {{/if}}
+
+  {{#if ACCEPT_METHOD}}
+  <div class="section-mark">■ 受領確認（承諾）</div>
+  <div class="callout">
+    <div style="font-weight:900;">承諾方法</div>
+    <div class="small-muted">
+      {{ACCEPT_METHOD}}
+      {{#if ACCEPT_REPLY_DUE_DATE}}<br>返信期限: {{ACCEPT_REPLY_DUE_DATE}}{{/if}}
+    </div>
+    {{#if ACCEPT_BY_PERFORMANCE}}
+    <div class="small-muted" style="margin-top:6px;">
+      なお、受注者が本発注に基づく業務へ着手した場合、その時点で本発注内容に承諾したものとして取り扱うことがあります。
+    </div>
+    {{/if}}
+  </div>
+  {{#if SHOW_SIGN_SECTION}}
+  <table class="sign-table" style="margin-top: 6px;">
+    <tr>
+      <th>受領日</th>
+      <td>{{VENDOR_ACCEPT_DATE}}</td>
+    </tr>
+    <tr>
+      <th>受領者</th>
+      <td>
+        {{VENDOR_ACCEPT_NAME}}
+        <div class="sign-box"></div>
+        <div class="small-muted">※ 記名押印（または署名）欄</div>
+      </td>
+    </tr>
+  </table>
+  {{/if}}
+  {{/if}}
+</body>
+</html>

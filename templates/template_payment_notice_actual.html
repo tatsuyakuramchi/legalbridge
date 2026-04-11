@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>支払通知書</title>
+<style>
+  @page { size: A4; margin: 18mm 20mm 20mm 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "IPAGothic", "Yu Gothic", sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+    background: #fff;
+  }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .doc-title { font-size: 26pt; font-weight: bold; letter-spacing: 1px; color: #111; }
+  .doc-meta { text-align: right; font-size: 9pt; color: #222; line-height: 1.8; padding-top: 6px; }
+  .rule { border: none; border-top: 2.5px solid #111; margin: 8px 0 18px 0; }
+  .parties { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .recipient { width: 48%; }
+  .recipient .name { font-size: 18pt; font-weight: bold; margin-bottom: 5px; }
+  .recipient .reg { font-size: 8.5pt; color: #444; }
+  .issuer { width: 40%; text-align: right; font-size: 9pt; line-height: 1.75; color: #222; }
+  .issuer .co-name { font-weight: bold; font-size: 11pt; }
+  .intro { font-size: 9.5pt; line-height: 1.9; color: #222; margin-bottom: 16px; }
+  .amount-box { border: 1px solid #aaa; margin-bottom: 12px; }
+  .amount-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px dotted #ccc; font-size: 10pt; }
+  .amount-row:last-child { border-bottom: none; }
+  .amount-row .lbl { color: #333; }
+  .amount-row .val { color: #111; }
+  .amount-row.deduction .lbl { color: #c0392b; }
+  .amount-row.deduction .val { color: #c0392b; }
+  .amount-row.grand { border-top: 1.5px solid #888; padding: 14px 16px; border-bottom: none; }
+  .amount-row.grand .lbl { font-size: 13pt; font-weight: bold; color: #111; }
+  .amount-row.grand .val { font-size: 16pt; font-weight: bold; color: #111; }
+  .notes-box { background: #f5f5f5; border: 1px solid #ddd; padding: 8px 12px; font-size: 7.5pt; color: #333; line-height: 1.8; margin-bottom: 16px; }
+  .thin-rule { border: none; border-top: 1px solid #ccc; margin: 14px 0; }
+  .breakdown { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 16px; }
+  .breakdown thead tr { background: #555; color: white; }
+  .breakdown thead th { padding: 6px 8px; text-align: left; font-size: 8pt; }
+  .breakdown tbody td { padding: 7px 8px; border: 1px solid #ccc; vertical-align: middle; }
+  .breakdown tfoot td { padding: 6px 8px; background: #f0f0f0; font-weight: bold; border: 1px solid #ccc; }
+  .right { text-align: right; }
+  .muted { font-size: 7.5pt; color: #555; }
+  .info-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .info-table td { padding: 9px 14px; border: 1px solid #ccc; vertical-align: middle; }
+  .info-table td.lbl { width: 80px; background: #f7f7f7; color: #333; white-space: nowrap; }
+  .info-table td.val { font-weight: bold; color: #111; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="doc-title">お支払いのご案内</div>
+  <div class="doc-meta">
+    No: {{notice_id}}<br>
+    発行日: {{notice_date}}
+  </div>
+</div>
+<hr class="rule">
+
+<div class="parties">
+  <div class="recipient">
+    <div class="name">{{vendor_name}} {{vendorSuffix}}</div>
+    {{#if vendor_representative_sama}}
+    <div class="reg">{{vendor_representative_sama}}</div>
+    {{/if}}
+    <div class="reg">登録番号: {{vendor_invoice_num}}</div>
+  </div>
+  <div class="issuer">
+    <div class="co-name">{{SENDER_NAME}}</div>
+    {{#if INVOICE_REGISTRATION_NUMBER}}登録番号: {{INVOICE_REGISTRATION_NUMBER}}<br>{{/if}}
+    〒 {{SENDER_ZIP}}<br>
+    {{SENDER_ADDRESS}}<br>
+    担当: {{SENDER_DEPT}}　{{STAFF_NAME}}
+  </div>
+</div>
+
+<p class="intro">
+  平素は格別のご高配を賜り、厚く御礼申し上げます。<br>
+  下記の通り、お支払金額が確定いたしましたのでご案内申し上げます。
+</p>
+
+<div class="amount-box">
+  <div class="amount-row">
+    <span class="lbl">支払対象額（税込合計）</span>
+    <span class="val">¥ {{formatCurrency totalWithTax}}</span>
+  </div>
+  {{#if expenseAmount}}
+  <div class="amount-row">
+    <span class="lbl">立替経費</span>
+    <span class="val">¥ {{formatCurrency expenseAmount}}</span>
+  </div>
+  {{/if}}
+  {{#if withholdingTax}}
+  <div class="amount-row deduction">
+    <span class="lbl">源泉徴収税額（控除）</span>
+    <span class="val">▲ ¥ {{formatCurrency withholdingTax}}</span>
+  </div>
+  {{/if}}
+  <div class="amount-row grand">
+    <span class="lbl">差引お振込額</span>
+    <span class="val">¥ {{formatCurrency paymentAmount}}</span>
+  </div>
+</div>
+
+{{#if showWithholdingNote}}
+<div class="notes-box">
+  ※ 個人事業主様へのお支払いのため、源泉徴収税額を控除しております。<br>
+  ※ 源泉徴収税率: {{withholdingRateLabel}}
+</div>
+{{/if}}
+
+<hr class="thin-rule">
+
+<table class="breakdown">
+  <thead>
+    <tr>
+      <th style="width:130px">検収書番号</th>
+      <th>案件名</th>
+      <th style="width:90px" class="right">金額</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each items}}
+    <tr>
+      <td>{{order_no}}</td>
+      <td>{{name}}
+        {{#if detail}}<br><span class="muted">（{{detail}}）</span>{{/if}}
+      </td>
+      <td class="right">¥ {{formatCurrency amount}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2" class="right">合計（税込）</td>
+      <td class="right">¥ {{formatCurrency totalWithTax}}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<table class="info-table">
+  <tr>
+    <td class="lbl">支払予定日</td>
+    <td class="val">{{payment_due_date}}</td>
+  </tr>
+  <tr>
+    <td class="lbl">振込先</td>
+    <td class="val">{{BANK_NAME}}　{{BRANCH_NAME}}　{{ACCOUNT_TYPE}}　{{ACCOUNT_NUMBER}}　{{BANK_ACCOUNT_NAME}}</td>
+  </tr>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!--
+================================================================================
+  ライセンス利用許諾基本契約書テンプレート v3
+  対応レンダラー: Handlebars (Next.js / Puppeteer)
+  変数一覧: {{変数名}} 形式 / 条件分岐: {{#if}} / {{else}} / {{{{/if}}}}
+================================================================================
+
+  【ヘッダー】
+  CONTRACT_NO           例: "C-ARC-DOM-LIC-202604001"
+
+  【甲（ライセンサー）】
+  VENDOR_ADDRESS        例: "〒661-0098<br>兵庫県尼崎市久々知西町2-5-17"
+  VENDOR_NAME           例: "株式会社ReAkku"
+  VENDOR_REP            例: "代表取締役　桺田　基"
+  VENDOR_PHONE          例: "03-1234-5678"
+  VENDOR_EMAIL          例: "contact@example.com"
+
+  【乙（ライセンシー）】
+  PARTY_A_ADDRESS        例: "東京都千代田区神田小川町１－２　風雲堂ビル２階"
+  PARTY_A_NAME           例: "株式会社アークライト"
+  PARTY_A_REP            例: "代表取締役　青柳　昌行"
+
+  【特約・特記事項（HAS_REMARKS=false の場合ブロックごと非表示）】
+  HAS_REMARKS           例: true / false
+  REMARKS               例: "特約本文"
+
+  【振込先情報】
+  BANK_NAME             例: "PayPay銀行（コード：0033）"
+  BRANCH_NAME           例: "ビジネス営業部（コード：005）"
+  ACCOUNT_TYPE          例: "普通預金"
+  ACCOUNT_NUMBER        例: "2582254"
+  ACCOUNT_HOLDER_KANA   例: "カ）リアツク"
+
+  【管轄裁判所】
+  JURISDICTION          例: "東京地方裁判所"（未指定時は条文デフォルト値を使用）
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ライセンス利用許諾基本契約書 - {{CONTRACT_NO}}</title>
+  <style>
+    body {
+      font-family: 'Noto Sans JP', 'Noto Sans CJK JP', serif;
+      font-size: 10.5pt;
+      line-height: 1.7;
+      color: #000;
+      padding: 0;
+      max-width: none;
+      margin: 0;
+      background-color: #fff;
+    }
+
+    .contract-document {
+      background-color: #fff;
+      padding: 0;
+      box-shadow: none;
+    }
+
+    @page { size: A4; margin: 20mm; }
+    
+    .header-no { text-align: right; font-size: 10pt; margin-bottom: 20px; font-family: sans-serif; }
+    h1 { text-align: center; font-size: 18pt; margin-bottom: 40px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 10px; }
+    .preamble { margin-bottom: 30px; text-align: justify; }
+    
+    .article { margin-bottom: 20px; }
+    .article-title { font-weight: bold; margin-bottom: 5px; }
+    .clause { margin-left: 0; margin-bottom: 5px; text-align: justify; }
+    .clause-content { padding-left: 1.5em; text-indent: -1.5em; }
+    .sub-clause { margin-left: 2em; padding-left: 2em; text-indent: -2em; margin-bottom: 3px; }
+
+    .info-section {
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      padding: 15px;
+      background-color: #fafafa;
+    }
+
+    .info-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 2px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 5px 10px;
+      align-items: center;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    .value {
+      border-bottom: 1px solid #eee;
+      min-height: 1.6em;
+    }
+
+    .stamp-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-right: 10px;
+    }
+
+    .stamp-box {
+      width: 60px;
+      height: 60px;
+      border: 1px dotted #aaa;
+      color: #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+      background-color: #fff;
+      margin-left: 15px;
+      flex-shrink: 0;
+    }
+
+    .signature-section { margin-top: 60px; page-break-inside: avoid; }
+    .signature-date { margin-bottom: 20px; }
+    .signature-block { display: flex; justify-content: space-between; margin-top: 30px; gap: 20px; }
+    .signer { width: 48%; }
+    .signer-role { font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom:2px;}
+    .signer-info { margin-left: 0; line-height: 1.8; }
+
+    .article {
+      page-break-inside: auto;
+    }
+    
+    .article-title {
+      page-break-after: avoid;
+    }
+    
+    .info-section {
+      page-break-inside: avoid;
+    }
+
+    @media print {
+      body {
+        background-color: #fff;
+        padding: 0;
+      }
+      .contract-document {
+        box-shadow: none;
+        padding: 0;
+      }
+      .article {
+        page-break-inside: auto;
+      }
+      .article-title {
+        page-break-after: avoid;
+      }
+      .clause, .sub-clause {
+        page-break-inside: auto;
+      }
+      .info-section {
+        page-break-inside: avoid;
+      }
+      p {
+        orphans: 3;
+        widows: 3;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="contract-document">
+
+  <div class="header-no">契約番号: {{CONTRACT_NO}}</div>
+
+  <h1>ライセンス利用許諾基本契約書</h1>
+
+  <div class="info-section">
+    <div class="info-title">甲（ライセンサー）</div>
+    <div class="info-grid">
+      <div class="label">住所</div>
+      <div class="value">{{VENDOR_ADDRESS}}</div>
+      <div class="label">商号</div>
+      <div class="value">{{VENDOR_NAME}}</div>
+      <div class="label">代表者</div>
+      <div class="value stamp-container">
+        <span>{{VENDOR_REP}}</span>
+        <div class="stamp-box">印</div>
+      </div>
+      <div class="label">電話番号</div>
+      <div class="value">{{VENDOR_PHONE}}</div>
+      <div class="label">メール</div>
+      <div class="value">{{VENDOR_EMAIL}}</div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-title">乙（ライセンシー）</div>
+    <div class="info-grid">
+      <div class="label">住所</div>
+      <div class="value">{{PARTY_A_ADDRESS}}</div>
+      <div class="label">商号</div>
+      <div class="value">{{PARTY_A_NAME}}</div>
+      <div class="label">代表者</div>
+      <div class="value stamp-container">
+        <span>{{PARTY_A_REP}}</span>
+        <div class="stamp-box">印</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-title">振込先銀行口座</div>
+    <div class="info-grid">
+      <div class="label">銀行名</div>
+      <div class="value">{{BANK_NAME}}</div>
+      <div class="label">支店名</div>
+      <div class="value">{{BRANCH_NAME}}</div>
+      <div class="label">口座種別</div>
+      <div class="value">{{ACCOUNT_TYPE}}</div>
+      <div class="label">口座番号</div>
+      <div class="value">{{ACCOUNT_NUMBER}}</div>
+      <div class="label">口座名義(カナ)</div>
+      <div class="value">{{ACCOUNT_HOLDER_KANA}}</div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-title">インボイス制度関連</div>
+    <div class="info-grid">
+      <div class="label">適格請求書<br>発行事業者</div>
+      <div class="value">{{IS_INVOICE_ISSUER}}</div>
+      <div class="label">登録番号</div>
+      <div class="value">{{invoiceRegistrationDisplay}}</div>
+    </div>
+  </div>
+
+  <!-- 特約・特記事項: HAS_REMARKS=true のときのみ表示 -->
+  {{#if HAS_REMARKS}}
+  <div class="info-section" style="background-color: #fffbf0; border-color: #f0e6d0;">
+    <div class="info-title" style="color: #8b6914;">特約・特記事項</div>
+    <div style="padding: 10px 5px; white-space: pre-wrap; line-height: 1.6;">{{REMARKS}}</div>
+  </div>
+  {{/if}}
+
+  <div class="preamble">
+    ライセンサー: <strong>{{VENDOR_NAME}}</strong>（以下「甲」という。）とライセンシー: <strong>{{PARTY_A_NAME}}</strong>（以下「乙」という。）は、甲が保有する原著作物に係る著作権の利用に関し、以下のとおり合意し、本契約を締結する。
+  </div>
+
+  <div class="article">
+    <div class="article-title">第1条（目的）</div>
+    <div class="clause clause-content">1. 本契約は、甲が保有する別紙個別利用許諾条件に定める原著作物に係る知的財産権について、乙によるアナログゲームとしての企画、開発、製造、販売、販促等の商業的利用を許諾するにあたり、その利用条件および当事者間の権利義務関係を定めることを目的とする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第2条（定義）</div>
+    <div class="clause clause-content">1. 本契約における用語の定義は、以下のとおりとする。</div>
+    <div class="sub-clause">（1）「原著作物」とは、甲が著作権（著作権法第27条および第28条に基づく権利を含む）、意匠権、商標権、著作隣接権、パブリシティ権その他の知的財産権（法的に保護されうる無体財産を含む）を有する、アニメーション、ゲーム、イラスト、物語、キャラクター、世界観、デザイン、設定、ならびにアナログゲームにおけるルール説明書、カードデザイン、コンポーネント等の創作性のある表現を含む創作物をいう。なお、甲が契約締結時点または将来において正当に権利を保有する、当該原著作物に由来するすべての関連作品および関連素材を含むものとする。</div>
+    <div class="sub-clause">（2）「アナログゲーム」とは、カードゲーム、ボードゲーム、ダイスゲーム、テーブルトークRPG（TRPG）、紙とペンを用いるゲーム等、主として電力を必要とせずにプレイされる非デジタル形式のゲーム製品をいう。なお、これらのアナログゲームを元に構成されたゲーム内容・システム・世界観等を基に、Webブラウザ、スマートフォンアプリ、PCソフトウェア、家庭用・携帯用ゲーム機向けソフトウェア等のデジタルプラットフォーム上に実装・提供される形式（以下「デジタル実装」という。）についても、本契約においてアナログゲームの派生物として含まれるものとする。また、本契約において「アナログゲーム」には、かかるデジタル実装を含む一連の派生的なゲーム展開を含むものとし、単体での販売・提供を目的とした商業用デジタルゲーム（スマートフォンアプリ等を含む）も含まれるものとする。</div>
+    <div class="sub-clause">（3）「対象アナログゲーム」とは、甲が保有する原著作物を基にして、乙が企画、開発、製造、販売、またはデジタル実装（スマートフォンアプリ、PCソフトウェア、Webブラウザゲーム等を含むがこれらに限られない）を行う、アナログゲームまたはその派生的製品であって、甲が本契約に基づき利用を許諾するものをいう。</div>
+    <div class="sub-clause">（4）「二次著作物」とは、原著作物を素材として乙が創作した新たな著作物であり、翻案・翻訳・視覚表現（イラスト・キャラクター等）・ルール記載等、著作権法上の保護対象となるものを含む。</div>
+    <div class="sub-clause">（5）「乙制作素材」とは、乙が対象アナログゲームの製造、販売、または翻訳・ローカライズ等にあたり、独自に制作し、または第三者に委託して制作した情報、データ、部品、素材等のうち、二次著作物に該当しないものを含む一切の資料、コンポーネント、記録等をいう。</div>
+    <div class="sub-clause">（6）「ライセンス種別」とは、本契約において乙に許諾される原著作物の利用権の性質をいい、別紙個別利用許諾条件にて定める「非独占的」「専属的」「独占的」のいずれかの形態を含む。</div>
+    <div class="sub-clause">（7）「許諾地域」とは、本契約に基づき乙による原著作物の利用が認められる国または地域をいい、別紙個別利用許諾条件に明記されるものとする。</div>
+    <div class="sub-clause">（8）「甲の監修」とは、対象アナログゲームの製造または販促に際し、原著作物の表現内容、外装、コンポーネント、ルール記載その他に関して、甲が確認・指摘を行う権利をいう。</div>
+    <div class="sub-clause">（9）「サブライセンス契約」とは、乙が本契約第5条に基づき第三者に対して再許諾を行う際に締結する契約をいう。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第3条（個別条件の成立）</div>
+    <div class="clause clause-content">1. 別紙個別利用許諾条件に定める原著作物に係る利用許諾条件は、それぞれ個別に定めるもの（以下「個別条件」という。）とし、甲および乙の合意のうえ、当該内容が別紙に記載された時点で効力を生ずるものとする。なお、別紙の形式は書面または電磁的方法による記録を含むものとし、両当事者の確認が取れたものを有効な個別条件とみなす。</div>
+    <div class="clause clause-content">2. 甲および乙は、対象アナログゲームの開発等を円滑に開始する必要がある場合において、利用許諾料その他の商業条件が未確定であるときでも、当該個別条件に「本件は暫定的利用許諾に基づくものである」旨を明記することにより、暫定的な利用許諾が成立することを認める。</div>
+    <div class="clause clause-content">3. 前項の暫定的利用許諾に係る個別条件には、解除条件または解除期限を明記することができるものとし、甲乙はこれを誠実に協議のうえ運用するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第4条（権利の許諾）</div>
+    <div class="clause clause-content">1. 甲は乙に対し、本契約の条件に従い、原著作物に係る知的財産権について、対象アナログゲームの製造、販売および販促を目的とした利用を許諾（以下「本許諾」という。）する。</div>
+    <div class="clause clause-content">2. 本許諾には、乙が当該目的のために原著作物に係る著作権（著作権法第21条から第28条に基づく複製、公衆送信、展示、頒布、翻案および二次的著作物の利用を含む）を利用する行為が含まれるものとし、その具体的条件は別紙個別利用許諾条件に定める。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第5条（サブライセンス）</div>
+    <div class="clause clause-content">1. 乙は、甲の書面による事前の承諾を得た場合に限り、本契約に基づき許諾された利用行為の全部または一部について、第三者に対し再許諾（以下「サブライセンス」という。）を行うことができる。なお、サブライセンスには、以下の2種類を含むものとする。</div>
+    <div class="sub-clause">（1）国内・海外パブリッシャーへの再許諾：乙が国内または海外における販売・流通を目的として第三者（以下「パブリッシャー」という。）に対して行うサブライセンス。</div>
+    <div class="sub-clause">（2）OEM委託者への再許諾：乙が第三者（以下「OEM委託者」という。）に対し、本契約に基づく著作権の一部を利用して、製品の製造・供給等を委託する場合に行うサブライセンス。</div>
+    <div class="clause clause-content">2. 乙が前項のいずれかのサブライセンスを行う場合には、当該第三者とのサブライセンス契約において、本契約に定める条件と同等以上の義務を当該第三者に課すものとし、乙は当該第三者の行為について甲に対して責任を負うものとする。なお、サブライセンスにより乙が受領する対価（以下「サブライセンス料」という。）の料率、支払方法、支払期限その他条件は、別紙個別利用許諾条件に定めるとおりとする。</div>
+    <div class="clause clause-content">3. 乙は、「個別利用許諾条件」に定める方法に従い、甲に対してサブライセンス料を支払うものとする。「個別利用許諾条件」に定めのない事項または変更が必要な場合は、甲乙協議の上、書面にて別途合意するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第6条（開発、製造および販売）</div>
+    <div class="clause clause-content">1. 乙は、対象アナログゲームに関する企画、設計、翻案、ルール構築、ローカライズ等の開発行為（以下「開発行為」という。）を、自己の責任および費用において行うものとする。開発行為に関して、甲の協力または監修が必要な場合には、甲乙協議のうえ、別途定める方法で対応するものとする。</div>
+    <div class="clause clause-content">2. 乙は、開発行為の一部または全部について、甲に対し、イラスト制作、キャラクターデザイン、グラフィック素材の作成等の業務、対象アナログゲームに関するプロモーション活動の一環として開催される販促イベント、サイン会、登壇企画、メディア出演等（以下「受託業務」という。）を委託することができる。なお、受託業務に関する具体的な内容、納期、報酬、成果物の知的財産権の取扱い等については、甲乙協議のうえ、書面またはそれに準ずる方法（発注書、電子メール等による合意を含む）により定めるものとする。</div>
+    <div class="clause clause-content">3. 前項において、甲が制作した成果物（以下「委託成果物」という。）に関する知的財産権のうち、甲が委託業務以前より保有していた従前の知的財産権は甲に帰属するものとする。一方で、委託業務の遂行により新たに創作された部分に係る知的財産権（翻案、加工、追加表現等を含む）は、特段の定めがない限り乙に譲渡されるものとする。なお、従前の知的財産権が委託成果物を構成する上で不可分かつ本質的な要素を構成する場合であって、乙が本契約に基づく目的の範囲で当該成果物を利用する際、甲乙間に別段の合意がない限り、甲は乙に対し、当該従前の知的財産権を非独占的に利用許諾するものとし、これらの利用許諾および著作権譲渡に係る対価は、当該業務委託に係る報酬にすべて含まれるものとする。</div>
+    <div class="clause clause-content">4. 乙は、対象アナログゲームの製造を、自己の責任および費用において行うものとする。ただし、乙は製造に先立ち、甲に対して予定製造数量および製造開始予定日等を通知し、試作サンプルを提供するものとする。なお、別途定める個別条件において甲の監修が求められている場合には、乙は、当該サンプルについて外装、内容物、ルール、翻案要素等に関する甲の監修を受けるものとする。甲は合理的な範囲で確認および指摘を行うことができ、乙はその指摘に誠意をもって対応する。</div>
+    <div class="clause clause-content">5. 乙は、対象アナログゲームの製造にあたり、印刷品質、資材の仕様、製品の安全性その他の品質について、甲が別途指定する基準がある場合にはこれを遵守しなければならない。また、乙は、甲が指定する著作権表示、ライセンス表記その他のクレジット情報を、甲の指示に従って製品およびパッケージ等に適切に表示しなければならない。</div>
+    <div class="clause clause-content">6. 乙は、対象アナログゲームの製造について、自らの責任において第三者に再委託することができるものとする。再委託先の選定、契約条件および管理については、乙の裁量に委ねられる。</div>
+    <div class="clause clause-content">7. 乙は、対象アナログゲームの販売に関して、許諾地域において、自己の裁量により販売方法、販売チャネル、価格設定等を決定できるものとする。また、乙は、自らの責任において、第三者に販売行為を委託することができる。</div>
+    <div class="clause clause-content">8. 乙が個別条件に定める許諾地域において本契約に基づき対象アナログゲームを販売する場合であっても、当該商品がインターネット等を通じた越境電子商取引（越境EC）を通じて、許諾地域外の消費者により購入された結果として、当該地域外に流通することとなったときは、乙が当該海外流通を直接的に意図・助長したものでない限り、当該行為は本契約に定める許諾地域の制限に違反するものとはみなさない。</div>
+    <div class="clause clause-content">9. 乙は、販売開始に先立ち、甲に対して販売予定日、対象地域および販売方法の概要を通知しなければならない。なお、甲が合理的に調整を求めた場合、乙はこれに誠意をもって協議するものとする。</div>
+    <div class="clause clause-content">10. 乙は、対象アナログゲームの製造または販売に関連して第三者との間に発生する瑕疵、クレーム、紛争その他の問題について、第一次的に対応しなければならない。必要に応じて、乙は甲と協議のうえ、これを適切に処理するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第7条（対価）</div>
+    <div class="clause clause-content">1. 乙は、対象アナログゲームの利用に対して、別紙個別利用許諾条件に記載された基準価格、ロイヤリティ料率、算定方法および対象地域ごとの条件に基づき算定された金額を、甲に対する対価として支払うものとする。なお、乙が甲に対して委託業務を発注した場合、当該委託業務に関する報酬（以下「業務委託報酬」という。）については、別途甲乙間で合意した金額および支払条件に従い、支払われるものとする。また、乙が「下請代金支払遅延等防止法」または「特定受託事業者に係る取引の適正化等に関する法律（令和5年法律第29号）」、その他これに準ずる法令の適用を受ける立場にある場合には、乙は、合意された支払期限までに当該業務委託報酬の全額を支払わなければならず、これに遅れた場合には、年14.6％の割合による遅延損害金を甲に対して支払うものとする。但し、当該法令等の適用を受けない場合は、3％とする。</div>
+    <div class="clause clause-content">2. ロイヤリティの算定方法は、別紙個別利用許諾条件において以下のいずれかの方式が指定されるものとする。</div>
+    <div class="sub-clause">（1）製造数量に基づく方式：乙は、製造完了時点または当該製品の第三者への引渡し時点のいずれか早い時点において、製造数量に基づきロイヤリティを算出・支払う。</div>
+    <div class="sub-clause">（2）売上高に基づく方式：乙は、実際の売上数量に応じたロイヤリティを、別紙個別利用許諾条件に定める計算期間および支払時期に従って支払う。</div>
+    <div class="clause clause-content">3. 乙は、当該支払を履行する場合、対象期間における数量・価格・地域別売上・控除項目・算定基準等を記載した明細書を甲に提出するものとする。</div>
+    <div class="clause clause-content">4. 甲は、乙の帳簿および関連書類につき、年1回を限度として合理的な方法および期間により監査を行うことができる。監査費用は原則として甲が負担するものとするが、過少支払いが判明した場合にはその費用は乙が負担するものとする。</div>
+    <div class="clause clause-content">5. 本条に基づく対価の支払は、冒頭の特約・特記事項に定める甲の金融機関口座への振込によって行うものとし、当該振込をもって乙の甲に対する支払義務の履行とみなす。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第8条（契約期間）</div>
+    <div class="clause clause-content">1. 本契約の有効期間は、契約締結日から起算して5年間とする。</div>
+    <div class="clause clause-content">2. 前項の期間満了の1ヶ月前までに、甲または乙いずれからも書面による更新拒絶の通知がない場合、本契約は同一条件にて5年間自動更新されるものとし、以後も同様とする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第9条（知的財産の帰属）</div>
+    <div class="clause clause-content">1. 乙が、本契約に基づき甲の原著作物を利用して創作した翻案物、翻訳テキスト、デザイン、ルール等の著作物（以下「二次著作物」という。）に係る著作権は、乙に帰属するものとする。</div>
+    <div class="clause clause-content">2. 前項の二次著作物は、本契約に定める目的および範囲に限り使用されるものとし、乙は甲の原著作物に係る権利を不当に侵害してはならない。</div>
+    <div class="clause clause-content">3. 乙が対象アナログゲームの製造、販売、翻訳、ローカライズ等に関連して制作した、または第三者に制作させた著作物に該当しない素材、部品、印刷物、仕様書、プレイシート等（以下「乙制作素材」という。）については、当該素材が乙に権利帰属する場合に限り、乙に帰属するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第10条（追加作品に関する合意）</div>
+    <div class="clause clause-content">1. 本契約の枠組みを適用する新たな原著作物および対象アナログゲームを追加する場合、甲乙は、予め本契約と併せて合意済の様式に基づく追加合意書を締結し、当該新作に関する情報を別紙個別利用許諾条件に追加または差替えることにより対応するものとする。</div>
+    <div class="clause clause-content">2. 前項に基づく追加合意書には、対象となる原著作物名、ライセンス種別、利用範囲、許諾地域、ロイヤリティ条件、許諾期間等を明記するものとし、本契約と一体として効力を有する。</div>
+    <div class="clause clause-content">3. 各追加原著作物に関する許諾期間は、原則として本契約の有効期間と同一とする。ただし、追加時点において本契約の残存期間が2年未満である場合には、本契約の自動更新がなされたことを前提に、更新後の有効期間全体を含めた期間を許諾期間とすることができるものとする。</div>
+    <div class="clause clause-content">4. 本条に基づき追加された原著作物に関する利用条件その他の事項は、本契約の各条項に従って取り扱われるものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第11条（契約終了後の措置）</div>
+    <div class="clause clause-content">1. 本契約が終了（期間満了、解除その他理由の如何を問わず）した場合、乙は以下の措置を講じるものとする。</div>
+    <div class="sub-clause">（1）対象アナログゲームの新規製造を直ちに中止すること。</div>
+    <div class="sub-clause">（2）契約終了日前に製造された在庫品については、当該在庫が消尽するまでの間、販売を継続することができる。ただし、甲が提供した原作アート等と一体的に構成された部分については、乙は甲の許諾を得た上で販売を継続するものとする。</div>
+    <div class="sub-clause">（3）原著作物、原作アート、甲が提供または監修した素材、およびそれらの複製物については、甲の指示に従い返還または適切に処分すること。</div>
+    <div class="clause clause-content">2. 本契約終了後、乙が本契約に基づき制作した二次著作物または乙制作素材を再利用する場合には、当該素材が甲の原著作物または原作アートと一体的に構成されていた場合に限り、甲の書面による事前承諾を得るものとする。</div>
+    <div class="clause clause-content">3. 甲は、本契約終了時に乙と協議のうえ、乙が本契約に基づき制作した主要な二次著作物および乙制作素材について、相当額の対価で譲り受ける交渉を行うことができ、乙はこれに誠実に応じるものとする。</div>
+    <div class="clause clause-content">4. 乙が第三者との間で本契約に基づくサブライセンス契約を締結していた場合には、乙の責任と費用において、当該契約を適切に終了させる措置を講じるものとする。</div>
+    <div class="clause clause-content">5. 本契約終了時点までに発生した甲乙間の権利義務（未払金の支払等）は、契約終了後もなお存続するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第12条（解除）</div>
+    <div class="clause clause-content">1. いずれかの当事者が本契約に違反し、相手方が書面によって相当期間を定めて是正を催告したにもかかわらず、当該期間内に是正されないときは、相手方は本契約を解除することができる。</div>
+    <div class="clause clause-content">2. 次の各号のいずれかに該当した場合には、民法第541条および第542条第1項第4号等の規定に基づき、相手方は催告を要せず直ちに本契約を解除することができるものとする。</div>
+    <div class="sub-clause">（1）支払停止、手形又は小切手の不渡りがあったとき</div>
+    <div class="sub-clause">（2）破産、民事再生、会社更生、特別清算の申立てがなされたとき、または自ら申立てを行ったとき</div>
+    <div class="sub-clause">（3）営業の全部または重要な部分の譲渡、合併、会社分割、または清算に着手したとき</div>
+    <div class="sub-clause">（4）財産について仮差押え、差押えまたは競売の申立てがあったとき</div>
+    <div class="sub-clause">（5）信用状態が著しく悪化し、本契約の履行が困難と合理的に認められるとき</div>
+    <div class="sub-clause">（6）自らまたはその役員等が反社会的勢力に該当し、または関係を有していることが判明したとき</div>
+    <div class="sub-clause">（7）その他、契約の目的を達成することが不可能または著しく困難と認められる重大な事由が生じたとき</div>
+    <div class="clause clause-content">3. 本条に基づく解除は、解除によって当事者に生じた損害について、解除権を行使した当事者がその責任を負うものではない。ただし、当該解除の原因が解除権者に帰責すべきものである場合はこの限りでない。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第13条（機密保持）</div>
+    <div class="clause clause-content">1. 甲および乙は、本契約の締結および履行に関連して相手方から開示された、秘密である旨を明示された技術上または営業上の情報（以下「秘密情報」という。）を、第三者に開示または漏洩せず、本契約の目的以外には使用しないものとする。</div>
+    <div class="clause clause-content">2. 前項の規定は、本契約期間中および本契約終了後3年間、引き続き有効に存続するものとする。</div>
+    <div class="clause clause-content">3. 次の各号のいずれかに該当する情報は、秘密情報に含まれないものとする。</div>
+    <div class="sub-clause">（1）開示を受けた時点ですでに公知であった情報</div>
+    <div class="sub-clause">（2）開示を受けた後、自己の責めによらず公知となった情報</div>
+    <div class="sub-clause">（3）開示を受ける前から保有していた情報であることを証明できるもの</div>
+    <div class="sub-clause">（4）正当な権限を有する第三者から適法に入手した情報</div>
+    <div class="sub-clause">（5）相手方から開示された秘密情報によることなく、独自に開発した情報</div>
+    <div class="clause clause-content">4. 甲および乙は、法令または裁判所その他の公的機関の命令に基づき開示を求められた場合には、可能な限り事前に相手方に通知し、協議のうえ対応するものとする。</div>
+    <div class="clause clause-content">5. 甲および乙は、秘密情報の取扱いに関し、善良なる管理者の注意義務をもって厳重に管理し、漏洩、紛失、盗難等の事態が発生した場合には、直ちに相手方に通知し、必要な措置を講じるものとする。</div>
+    <div class="clause clause-content">6. 本契約の終了または相手方からの要請があった場合、甲および乙は、相手方から受領した秘密情報およびその複製物を、相手方の指示に従い、速やかに返還または廃棄するものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第14条（個人情報の取扱い）</div>
+    <div class="clause clause-content">1. 甲および乙は、本契約の履行に関連して相手方または第三者の個人情報を取り扱う場合、日本の個人情報の保護に関する法律その他の関係法令を遵守し、適切に管理するものとする。</div>
+    <div class="clause clause-content">2. 甲および乙は、取得した個人情報を、本契約の履行に必要な範囲を超えて利用せず、また、第三者に提供または開示してはならない。</div>
+    <div class="clause clause-content">3. 甲および乙は、個人情報の漏洩、滅失または毀損の防止その他の安全管理措置を講じるとともに、事故等が発生した場合には、速やかに相手方に報告し、必要な措置を講じるものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第15条（権利義務の譲渡禁止）</div>
+    <div class="clause clause-content">1. 甲および乙は、相手方の書面による事前の承諾なく、本契約に基づく一切の権利および義務を、第三者に譲渡し、担保に供し、または承継させてはならない。</div>
+    <div class="clause clause-content">2. 前項に違反してなされた譲渡等は無効とする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第16条（表明保証）</div>
+    <div class="clause clause-content">1. 甲は、次の各号について、本契約締結時点において真実かつ正確であることを表明し、保証する。</div>
+    <div class="sub-clause">（1）原著作物に関する著作権その他の必要な知的財産権を正当に保有し、第三者の権利を侵害していないこと</div>
+    <div class="sub-clause">（2）原著作物について、第三者からの知的財産権侵害の主張、差止、損害賠償請求等の係争は存在せず、そのおそれもないこと。なお、乙が本契約に基づく正当な利用により第三者との間に紛争または損害を被った場合には、甲の責任と費用負担によりこれを解決し、乙に生じた損害を補償すること</div>
+    <div class="sub-clause">（3）本契約を締結・履行するにあたって、自己の権限に基づいており、第三者の承諾を要しないこと</div>
+    <div class="sub-clause">（4）日本法令その他適用される法令に違反していないこと</div>
+    <div class="clause clause-content">2. 乙は、次の各号について、本契約締結時点において真実かつ正確であることを表明し、保証する。</div>
+    <div class="sub-clause">（1）本契約を締結・履行するにあたって、自己の権限に基づいており、第三者の承諾を要しないこと</div>
+    <div class="sub-clause">（2）日本法令その他適用される法令に違反していないこと</div>
+    <div class="sub-clause">（3）契約の履行にあたり、誠実に対応する意志と能力を有していること</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第17条（損害賠償）</div>
+    <div class="clause clause-content">1. 甲および乙は、本契約に違反し、または本契約に関連して相手方に損害を与えた場合、当該違反当事者は、相手方に対し、現実に発生した直接かつ通常の範囲に属する損害（以下「通常損害」という。）に限り、その損害を賠償する責任を負うものとする。</div>
+    <div class="clause clause-content">2. いかなる場合においても、甲および乙は、相手方に対し、特別損害、間接損害、結果的損害、逸失利益、営業機会の喪失その他通常損害を超える損害については、賠償責任を負わないものとする。</div>
+    <div class="clause clause-content">3. ただし、以下の場合には、本条に定める責任の制限は適用されず、当該当事者は相手方に生じた一切の損害について全額賠償する責任を負うものとする。</div>
+    <div class="sub-clause">（1）金銭債務の不履行（支払遅延を含む）</div>
+    <div class="sub-clause">（2）本契約における表明保証条項の違反</div>
+    <div class="sub-clause">（3）故意または重大な過失による契約違反または不法行為</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第18条（反社会的勢力の排除）</div>
+    <div class="clause clause-content">1. 甲および乙は、現在および将来にわたり、次のいずれにも該当しないことを表明し、保証する。</div>
+    <div class="sub-clause">（1）暴力団、暴力団員、暴力団関係企業、総会屋、社会運動等標ぼうゴロ、特殊知能暴力集団その他これに準ずる者（以下「反社会的勢力」という。）でないこと</div>
+    <div class="sub-clause">（2）反社会的勢力と関係を有していないこと</div>
+    <div class="sub-clause">（3）反社会的勢力を利用しないこと</div>
+    <div class="sub-clause">（4）反社会的勢力に資金等を提供しないこと</div>
+    <div class="sub-clause">（5）自らまたは第三者を通じて不当な要求行為を行わないこと</div>
+    <div class="clause clause-content">2. 甲または乙が前項に違反した場合、相手方は何らの催告を要せずして本契約を直ちに解除することができる。この場合、解除により生じた損害について、解除された当事者は何らの賠償を請求することはできない。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第19条（協議事項）</div>
+    <div class="clause clause-content">1. 本契約に定めのない事項、または本契約条項の解釈に疑義が生じた場合には、甲乙協議の上、誠意をもって解決を図るものとする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第20条（旧契約の包括統合及び解除）</div>
+    <div class="clause clause-content">1. 甲および乙は、本契約の発効日をもって、別紙個別利用許諾条件に記載された原著作物に関して甲乙間で従前に成立していた一切の利用許諾契約（書面、口頭その他の形式を問わない。以下「旧契約」という。）があった場合、当該契約の内容を本契約に包括統合し、当該包括統合の完了と同時に旧契約を解除することに合意する。なお、当該包括統合及び解除により、旧契約は本契約に吸収された後に消滅し、以後は本契約のみが当該原著作物に関する唯一の有効な契約として適用される。</div>
+    <div class="clause clause-content">2. 旧契約の解除は、本契約への包括統合を条件として行われるものであり、当該原著作物に関する利用条件および権利義務関係に空白期間が生じることはない。</div>
+    <div class="clause clause-content">3. 本契約発効日前に旧契約に基づいて既に確定した権利義務については、本契約の枠組みの中で引き続き有効とし、本契約の条項に従って取り扱われる。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第21条（準拠法および合意管轄）</div>
+    <div class="clause clause-content">1. 本契約の準拠法は、日本法とする。</div>
+    <div class="clause clause-content">2. 本契約に関して甲乙間に生じた紛争については、{{JURISDICTION}}を第一審の専属的合意管轄裁判所とする。</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">第22条（存続）</div>
+    <div class="clause clause-content">1. 本契約が終了した場合であっても、本条、第7条（対価）、第9条（知的財産の帰属）乃至第11条（契約終了後の措置）、および第13条（機密保持）、第21条（準拠法および合意管轄）はなお有効に存続するものとする。</div>
+  </div>
+
+  <div style="margin-top: 30px; text-align: center; font-size: 10pt; color: #666;">（以下余白）</div>
+
+</div>
+
+</body>
+</html>

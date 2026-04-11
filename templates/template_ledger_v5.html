@@ -1,0 +1,650 @@
+<!--
+================================================================================
+  個別利用許諾条件テンプレート v5  (Handlebars 形式)
+  ※ v4 からの主な変更点
+    - メタボックス：4列グリッド → 横割り（ラベル左22%・値右）3行（地域/言語削除）
+    - 発行日：空欄 → {{発行日}} 変数
+    - 対象製品・版 → 対象製品の定義（固定文）＋ 対象製品予定名（変数）の2行
+    - 著作者人格権・(C)再許諾・補足の甲乙 → Licensor/Licensee 表記
+    - 見本提供：初回3個のみ（再生産条件削除）
+    - 支払条件：翌月20日・支払先記載なし（支払先は特記事項へ）
+    - 金銭条件2見出し：「国内・海外展開（ライセンスアウト型）」
+    - 金銭条件3料率：金銭条件1の2倍を基本
+    - 特記事項：{{特記事項_本文}} 変数で自由記述
+    - 許諾期間表示：「契約開始日：日付」+ 注記1行
+    - レイアウト：余白・フォント・行間を最適化（A4 4ページ目安）
+================================================================================
+
+  【変数一覧】
+  台帳ID                   例: "LIC-ARC-DOM-202604001"
+  契約書番号               例: "C-ARC-DOM-LIC-202604001"
+  発行日                   例: "2026/04/01"
+  ライセンス種別名         例: "ボードゲーム国内・海外ライセンス"
+  基本契約名               例: "ライセンス利用許諾基本契約書（2026/04/01締結）"
+  licensor名               例: "高橋 宏佳"
+  licensee名               例: "株式会社アークライト"
+  許諾開始日               例: "2026/04/01"
+  許諾期間注記             例: "基本契約の満了日まで。満了後は基本契約第8条に従い5年ごとに自動更新"
+
+  原著作物名               例: "ボードゲーム『ダブルナイン』"
+  原著作物補記             例: "原作および原作から派生・拡張された一切の作品を含む"
+  対象製品予定名           例: "『ダブルナイン』"
+
+  素材番号                 例: "LIC-ARCDOM202604001-01"
+  素材名                   例: "原作ボードゲーム『ダブルナイン』"
+  素材権利者               例: "高橋 宏佳（妄想ゲームズ☆）"
+  監修者                   例: "高橋 宏佳（H1R0）／妄想ゲームズ☆"
+  クレジット表示           例: "高橋 宏佳 / H1R0"
+
+  金銭条件1_地域言語ラベル  例: "全世界・全言語"
+  金銭条件1_計算方式        例: "製造ベース・MSRP計算"
+  金銭条件1_計算式          例: "上代（MSRP）× 5.0% × 販売用製造総数（言語ごとカウント）"
+  金銭条件1_基準価格ラベル  例: "上代（MSRP）"
+  金銭条件1_料率            例: "5.0%"
+  金銭条件1_計算期間        例: "製造時（製造都度）"
+  金銭条件1_通貨            例: "JPY（円建て）"
+  金銭条件1_支払条件        例: "初回生産分：製品の国内発売日の翌月20日までにLicensorへ支払う\n再生産分：製造月の翌月20日までにLicensorへ支払う"
+  金銭条件1_MG_AG           例: "（別途定めなし）"
+  金銭条件1_補足条件        例: ""
+
+  金銭条件2_見出し          例: "国内・海外展開（ライセンスアウト型）"
+  金銭条件2_地域            例: "全世界"
+  金銭条件2_言語            例: "全言語"
+  金銭条件2_計算方式        例: "ライセンスアウト型（サブライセンス料の分配）"
+  金銭条件2_概要            例: "国内・海外パートナーにサブライセンスし..."
+  金銭条件2_計算式          例: "Licenseeが受領したサブライセンス料 × 50.0%"
+  金銭条件2_計算式注記      例: ""
+  金銭条件2_分配率          例: "50.0%"
+  金銭条件2_通貨            例: "全通貨（受領通貨に準ずる）"
+  金銭条件2_支払条件        例: "LicenseeがサブライセンシーからLicenseeへの支払を受け取った日の翌月20日までにLicensorへ支払う"
+  金銭条件2_MG_AG           例: "（別途定めなし）"
+  金銭条件2_補足条件        例: ""
+
+  金銭条件3_見出し          例: "海外展開（プロダクトアウト型）"
+  金銭条件3_地域            例: "全世界（日本を除く）"
+  金銭条件3_言語            例: "全言語（日本語を除く）"
+  金銭条件3_計算方式        例: "海外プロダクトアウト型"
+  金銭条件3_概要            例: "海外パートナーからの委託によりLicenseeがローカライズ版を製造・出荷し..."
+  金銭条件3_計算式          例: "海外パートナーとの取引額（製造代金＋利用許諾料） × 10.0%"
+  金銭条件3_計算式注記      例: "※料率は個別取引ごとに別途合意することができる"
+  金銭条件3_料率            例: "10.0%"
+  金銭条件3_通貨            例: "外貨（取引通貨に準ずる）"
+  金銭条件3_支払条件        例: "製造月の翌月20日までにLicensorへ支払う"
+  金銭条件3_MG_AG           例: "（別途定めなし）"
+  金銭条件3_補足条件        例: ""
+
+  特記事項_本文             例: "２．【旧契約の包括統合】　...<br><br>３．【許諾期間の継続性】..."
+                            ※ 第１項（本台帳は…）は自動挿入。第２項以降をここに記述。
+
+  LICENSOR_IS_CORPORATION   例: false  ← true=法人 / false=個人
+  licensor_住所             例: "〒612-8024 京都府京都市伏見区桃山町根来18-12"
+  licensor_氏名会社名       例: "高橋 宏佳"
+  licensor_代表者名         例: "代表取締役　氏名"  ← 法人のみ
+
+  LICENSEE_IS_CORPORATION   例: true
+  licensee_住所             例: "東京都千代田区神田小川町１－２　風雲堂ビル２階"
+  licensee_氏名会社名       例: "株式会社アークライト"
+  licensee_代表者名         例: "代表取締役　青柳　昌行"  ← 法人のみ
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>別紙 個別利用許諾条件 - {{台帳ID}}</title>
+  <style>
+    /* ── ページ・基本 ── */
+    @page { size: A4; margin: 11mm 13mm; }
+
+    :root {
+      --ink:   #111;
+      --muted: #555;
+      --line:  #cfcfcf;
+      --panel: #f2f2f2;
+      --panel2:#fafafa;
+    }
+
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    body {
+      font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
+      font-size: 8.8pt;
+      line-height: 1.42;
+      color: var(--ink);
+    }
+
+    /* ── ヘッダー ── */
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 5px;
+      margin-bottom: 5px;
+    }
+    h1 { font-size: 13pt; margin: 0; letter-spacing: .6px; flex-shrink: 0; }
+    .top-right-info { text-align: right; font-size: 9pt; line-height: 1.6; color: var(--muted); }
+    .doc-subtitle   { font-size: 10.5pt; font-weight: 900; margin: 2px 0 7px 0; }
+
+    /* ── メタボックス（横割り） ── */
+    .meta-box {
+      border: 1px solid var(--line);
+      padding: 6px 9px;
+      margin: 5px 0 6px 0;
+      background: var(--panel2);
+      page-break-inside: avoid;
+    }
+    .meta-row-v    { display: table; width: 100%; border-collapse: collapse; }
+    .meta-row-item { display: table-row; }
+    .meta-label-h  {
+      display: table-cell; width: 22%;
+      font-weight: 900; font-size: 9pt; color: var(--muted);
+      padding: 2px 8px 2px 0; white-space: nowrap; vertical-align: top;
+    }
+    .meta-val-h    { display: table-cell; font-size: 9pt; padding: 2px 0; vertical-align: top; line-height: 1.45; }
+    .meta-note     { font-size: 8.5pt; color: var(--muted); margin-top: 6px; }
+
+    /* ── セクション ── */
+    .section       { margin-top: 8px; page-break-inside: auto; break-inside: auto; }
+    .section-title {
+      font-weight: 900; font-size: 10.5pt;
+      border-left: 4px solid var(--ink); padding-left: 8px;
+      margin-bottom: 6px; page-break-after: avoid;
+    }
+
+    /* ── ボックス・行 ── */
+    .box      { border: 1px solid var(--line); padding: 6px 10px; margin-bottom: 5px; page-break-inside: avoid; }
+    .row-info { display: flex; margin-bottom: 3px; }
+    .row-label{ width: 25%; flex-shrink: 0; color: var(--muted); }
+    .row-val  { width: 75%; }
+
+    /* ── テーブル ── */
+    table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 9pt; page-break-inside: avoid; }
+    th, td { border: 1px solid var(--line); padding: 4px 7px; text-align: left; vertical-align: top; line-height: 1.5; }
+    th { background: var(--panel); font-weight: 900; }
+    thead { display: table-header-group; }
+
+    /* ── callout ── */
+    .callout { background: var(--panel2); border: 1px solid var(--line); padding: 7px 10px; margin: 5px 0; line-height: 1.65; }
+
+    /* ── 金銭条件 ── */
+    .payment-box   { margin-top: 4px; padding: 6px 9px; border: 1px solid var(--line); background: #fff; page-break-inside: avoid; }
+    .formula-panel { background: #e8f4ff; border: 1px solid #b3d9ff; padding: 6px 10px; margin: 5px 0; border-radius: 4px; }
+    .formula-main  { font-size: 9pt; color: #004499; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .formula-note  { font-size: 8pt; color: #666; margin-top: 4px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .payment-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; margin: 5px 0; }
+    .payment-grid-item { display: flex; margin-bottom: 2px; }
+    .payment-chip  { margin-top: 3px; padding: 4px 8px; line-height: 1.4; }
+    .payment-body  { line-height: 1.4; word-break: break-word; }
+    .payment-terms    { background: #fff8dc; border: 1px solid #daa520; }
+    .payment-guarantee{ background: #f2f2f2; border: 1px solid var(--line); }
+    .payment-note-chip{ background: #f7f7f7; border: 1px dashed #999; }
+
+    /* ── 署名 ── */
+    .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; page-break-inside: avoid; }
+    .sig-box   { border: 1px solid var(--line); padding: 12px; }
+    .sig-title { font-weight: 900; margin-bottom: 10px; }
+    .sig-line  { border-bottom: 1px solid var(--ink); height: 16px; margin: 6px 0 4px 0; }
+
+    /* ── フッター ── */
+    .footer { margin-top: 14px; text-align: center; font-size: 9pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+
+    /* ── ユーティリティ ── */
+    .center { text-align: center; }
+    .small  { font-size: 9pt; }
+    .muted  { color: var(--muted); }
+    .bold   { font-weight: 900; }
+    .mono   { font-family: monospace; }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <div class="header-row">
+    <h1>別紙 個別利用許諾条件</h1>
+    <div class="top-right-info">
+      発行日: <strong>{{発行日}}</strong><br>
+      契約書番号: <strong class="mono">{{契約書番号}}</strong><br>
+      台帳ID: <strong class="mono">{{台帳ID}}</strong>
+    </div>
+  </div>
+
+  <!-- サブタイトル -->
+  <div class="doc-subtitle">{{ライセンス種別名}}</div>
+
+  <!-- メタ情報ボックス -->
+  <div class="meta-box">
+    <div class="meta-row-v">
+      <div class="meta-row-item">
+        <span class="meta-label-h">基本契約</span>
+        <span class="meta-val-h">{{基本契約名}}</span>
+      </div>
+      <div class="meta-row-item">
+        <span class="meta-label-h">当事者</span>
+        <span class="meta-val-h">Licensor: {{licensor名}}<br>Licensee: {{licensee名}}</span>
+      </div>
+      <div class="meta-row-item">
+        <span class="meta-label-h">期間</span>
+        <span class="meta-val-h">
+          契約開始日：{{許諾開始日}}
+          <div style="font-size:8pt; color:#666; margin-top:2px;">{{許諾期間注記}}</div>
+        </span>
+      </div>
+    </div>
+    <div class="meta-note">本別紙の定めと基本契約の定めが抵触する場合、本別紙の定めが優先する。</div>
+  </div>
+
+  <!-- 1. 許諾の内容 -->
+  <div class="section">
+    <div class="section-title">1. 許諾の内容（Grant）</div>
+    <div class="box">
+      <div class="row-info">
+        <span class="row-label">原著作物</span>
+        <span class="row-val">{{原著作物名}}（{{原著作物補記}}。以下「対象作品」という。）</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">対象製品の定義</span>
+        <span class="row-val">LicenseeがLicensorより許諾を受け、対象作品を利用して企画・開発・製造・販売するボードゲーム製品（以下「対象製品」という。）</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">対象製品予定名</span>
+        <span class="row-val">{{対象製品予定名}}</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">独占性</span>
+        <span class="row-val"><strong>独占的</strong>（排他的独占：Licensorは第三者への再許諾を自ら行わない）</span>
+      </div>
+
+      <div style="margin-top:6px; border:1px solid var(--line); padding:8px 10px; background:#fff;">
+        <div style="font-weight:900; margin-bottom:6px; border-bottom:1px solid var(--line); padding-bottom:3px;">ボードゲーム（開発・製造・販売）</div>
+
+        <div style="margin-bottom:5px;">
+          <div style="font-weight:900;">（A）許諾範囲（Scope）</div>
+          <div class="small" style="margin-top:3px;">
+            全世界（日本国内を含む）において、全言語（日本語版を含む）により、対象作品のゲームルール、テーマ、文面、記号、名称その他一切の著作権（著作権法第27条・第28条に規定される権利を含む）を利用して、ボードゲーム製品を企画・開発・製造・販売・広告宣伝するために必要な範囲で許諾する。
+          </div>
+        </div>
+
+        <div style="margin-bottom:5px;">
+          <div style="font-weight:900;">（B）許諾権利（Rights）</div>
+          <ul class="small" style="margin:4px 0 0 16px; padding:0;">
+            <li><strong>複製・翻案：</strong>対象作品をボードゲーム構成物（パッケージ、カード、ボード、マニュアル等）に複製および翻案（キャラクターのデフォルメ化、トリミング等を含む）する権利</li>
+            <li><strong>譲渡：</strong>製造した製品を譲渡により公衆に提供する権利（全世界・全言語）</li>
+            <li><strong>公衆送信・上映：</strong>製品の広告宣伝のために対象作品またはその複製物を公衆送信（送信可能化を含む）および上映する権利</li>
+            <li><strong>著作者人格権の不行使：</strong>Licensorは、本契約に定める場合またはLicensor・Licensee書面合意の場合を除き、契約期間中、著作者人格権（著作権法第27条・第28条に規定される権利を含む）を行使しないことを確認する（Licensorの被用者・使用人による権利行使を含む）</li>
+          </ul>
+        </div>
+
+        <div>
+          <div style="font-weight:900;">（C）再許諾（Sub-license）条件</div>
+          <div class="small" style="margin-top:3px;">
+            Licensorの事前書面承認を得た場合に限り、Licenseeは第三者に対しサブライセンスを行うことができる。サブライセンスの対価配分は第4条および金銭条件2に定める通りとする。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 提供素材・監修・承認 -->
+  <div class="section">
+    <div class="section-title">2. 提供素材・監修・承認（Materials &amp; Approval）</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24%">素材番号</th>
+          <th style="width:20%">素材名</th>
+          <th style="width:13%">権利者</th>
+          <th style="width:10%">区分</th>
+          <th style="width:8%">監修</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono small">{{素材番号}}</td>
+          <td>{{素材名}}</td>
+          <td>{{素材権利者}}</td>
+          <td class="center">ORIGINAL</td>
+          <td class="center bold">有</td>
+          <td class="small">原作派生物（続編を含む）。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="box payment-box">
+      <div style="font-weight:900; margin-bottom:5px;">承認条件</div>
+      <div class="row-info">
+        <span class="row-label">承認対象</span>
+        <span class="row-val">ゲームルール・テーマ・文面・記号・名称の変更、追加、削除、商品としての仕様変更、パッケージ・広告宣伝材料</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">承認時期</span>
+        <span class="row-val">製造前・変更前（書面による事前承諾）</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">監修者</span>
+        <span class="row-val">{{監修者}}</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">クレジット表示</span>
+        <span class="row-val">製品に適切と思われる箇所に著者名を明記する</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">見本提供</span>
+        <span class="row-val">初回生産時：生産完了後すみやかに3個をLicensorに提供。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 金銭条件 -->
+  <div class="section">
+    <div class="section-title">3. 金銭条件（Payment）</div>
+
+    <!-- 金銭条件1 -->
+    <div class="box payment-box">
+      <div style="font-weight:900; margin-bottom:5px;">
+        金銭条件 1：自社製造・直接販売（{{金銭条件1_地域言語ラベル}}）
+      </div>
+      <div class="row-info">
+        <span class="row-label">計算方式</span>
+        <span class="row-val" style="font-weight:900;">{{金銭条件1_計算方式}}（言語ごとに製造数をカウント）</span>
+      </div>
+      <div class="formula-panel">
+        <div style="font-weight:900; color:#0066cc; margin-bottom:2px;">計算式</div>
+        <div class="formula-main">{{金銭条件1_計算式}}</div>
+        <div class="formula-note">※販売しないもの（関係者用・販促用サンプル等）は製造数に含まない</div>
+      </div>
+      <div class="payment-grid">
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">基準価格ラベル</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件1_基準価格ラベル}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">料率</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件1_料率}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">計算期間</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件1_計算期間}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">通貨</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件1_通貨}}</span>
+        </div>
+      </div>
+      <div class="payment-chip payment-terms">
+        <div style="font-weight:900; color:#b8860b; margin-bottom:1px;">支払条件</div>
+        <div class="small payment-body">{{金銭条件1_支払条件}}</div>
+      </div>
+      <div class="payment-chip payment-guarantee">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">MG/AG・最低保証等</div>
+        <div class="small payment-body">{{金銭条件1_MG_AG}}</div>
+      </div>
+      {{#if 金銭条件1_補足条件}}
+      <div class="payment-chip payment-note-chip">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">補足条件・計算メモ</div>
+        <div class="small payment-body">{{金銭条件1_補足条件}}</div>
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- 金銭条件2 -->
+    <div class="box payment-box">
+      <div style="font-weight:900; margin-bottom:5px;">
+        金銭条件 2：{{金銭条件2_見出し}}（{{金銭条件2_地域}}・{{金銭条件2_言語}}）
+      </div>
+      <div class="row-info">
+        <span class="row-label">計算方式</span>
+        <span class="row-val" style="font-weight:900;">{{金銭条件2_計算方式}}</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">概要</span>
+        <span class="row-val small">{{金銭条件2_概要}}</span>
+      </div>
+      <div class="formula-panel">
+        <div style="font-weight:900; color:#0066cc; margin-bottom:2px;">計算式</div>
+        <div class="formula-main">{{金銭条件2_計算式}}</div>
+        {{#if 金銭条件2_計算式注記}}<div class="formula-note">{{金銭条件2_計算式注記}}</div>{{/if}}
+      </div>
+      <div class="payment-grid">
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">分配率（Licensor取分）</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件2_分配率}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">地域</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件2_地域}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">言語</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件2_言語}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">通貨</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件2_通貨}}</span>
+        </div>
+      </div>
+      <div class="payment-chip payment-terms">
+        <div style="font-weight:900; color:#b8860b; margin-bottom:1px;">支払条件</div>
+        <div class="small payment-body">{{金銭条件2_支払条件}}</div>
+      </div>
+      <div class="payment-chip payment-guarantee">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">MG/AG・最低保証等</div>
+        <div class="small payment-body">{{金銭条件2_MG_AG}}</div>
+      </div>
+      {{#if 金銭条件2_補足条件}}
+      <div class="payment-chip payment-note-chip">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">補足条件・計算メモ</div>
+        <div class="small payment-body">{{金銭条件2_補足条件}}</div>
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- 金銭条件3 -->
+    <div class="box payment-box">
+      <div style="font-weight:900; margin-bottom:5px;">
+        金銭条件 3：{{金銭条件3_見出し}}（{{金銭条件3_地域}}・{{金銭条件3_言語}}）
+      </div>
+      <div class="row-info">
+        <span class="row-label">計算方式</span>
+        <span class="row-val" style="font-weight:900;">{{金銭条件3_計算方式}}</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">概要</span>
+        <span class="row-val small">{{金銭条件3_概要}}</span>
+      </div>
+      <div class="formula-panel">
+        <div style="font-weight:900; color:#0066cc; margin-bottom:2px;">計算式</div>
+        <div class="formula-main">{{金銭条件3_計算式}}</div>
+        {{#if 金銭条件3_計算式注記}}<div class="formula-note">{{金銭条件3_計算式注記}}</div>{{/if}}
+      </div>
+      <div class="payment-grid">
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">取引額に対する率</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件3_料率}}（基本料率）</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">地域</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件3_地域}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">言語</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件3_言語}}</span>
+        </div>
+        <div class="payment-grid-item">
+          <span style="width:40%; color:var(--muted); font-size:9pt;">通貨</span>
+          <span style="width:60%; font-weight:500;">{{金銭条件3_通貨}}</span>
+        </div>
+      </div>
+      <div class="payment-chip payment-terms">
+        <div style="font-weight:900; color:#b8860b; margin-bottom:1px;">支払条件</div>
+        <div class="small payment-body">{{金銭条件3_支払条件}}</div>
+      </div>
+      <div class="payment-chip payment-guarantee">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">MG/AG・最低保証等</div>
+        <div class="small payment-body">{{金銭条件3_MG_AG}}</div>
+      </div>
+      {{#if 金銭条件3_補足条件}}
+      <div class="payment-chip payment-note-chip">
+        <div style="font-weight:900; color:#333; margin-bottom:1px;">補足条件・計算メモ</div>
+        <div class="small payment-body">{{金銭条件3_補足条件}}</div>
+      </div>
+      {{/if}}
+    </div>
+  </div>
+
+  <!-- 4. 再許諾 -->
+  <div class="section">
+    <div class="section-title">4. 再許諾（Sub-license）</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:8%">区分</th>
+          <th style="width:14%">相手先</th>
+          <th style="width:8%">地域</th>
+          <th style="width:8%">言語</th>
+          <th style="width:13%">適用金銭条件</th>
+          <th style="width:10%">MG/AG</th>
+          <th style="width:7%">個別料率</th>
+          <th style="width:9%">契約締結日</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="9" class="center muted small">（登録なし）</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout" style="margin-top:5px;">
+      <div style="font-weight:900;">補足</div>
+      <div class="small muted" style="margin-top:3px;">再許諾先の追加は、Licensorの事前書面承認を取得の上、本台帳を更新する。</div>
+    </div>
+  </div>
+
+  <!-- 5. 報告・監査条件 -->
+  <div class="section">
+    <div class="section-title">5. 報告・監査条件</div>
+    <div class="box">
+      <div class="row-info">
+        <span class="row-label">報告トリガー</span>
+        <span class="row-val">製造（印刷）ベース</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">報告頻度</span>
+        <span class="row-val">製造都度（初回・再生産ごと）</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">報告内容</span>
+        <span class="row-val">言語別製造数、希望小売価格（MSRP）、ロイヤリティ計算明細（販促・サンプル等の除外数を含む）</span>
+      </div>
+      <div class="row-info">
+        <span class="row-label">税・源泉徴収</span>
+        <span class="row-val">源泉徴収税は基本契約の定めに準ずる（支払時に控除のうえ支払い、源泉徴収票を発行する）</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 特記事項 -->
+  <div class="section">
+    <div class="section-title">6. 特記事項</div>
+    <div class="box" style="line-height:1.8;">
+      １．本台帳は、台帳ID「{{台帳ID}}」に紐づく個別利用許諾条件であり、基本契約（{{契約書番号}}）の別紙として一体的に効力を有する。<br><br>
+      {{特記事項_本文}}
+    </div>
+  </div>
+
+  <!-- 7. 署名 -->
+  <div class="section" style="page-break-inside: avoid; margin-top:16px;">
+    <div class="section-title">7. 署名</div>
+    <div class="small muted" style="margin-bottom:10px; line-height:1.7;">ライセンサーおよびライセンシーは、上記の通り利用許諾に関する個別条件を確認し、合意した。</div>
+    <div class="signature-grid">
+
+      <!-- Licensor署名欄 -->
+      <div class="sig-box">
+        <div class="sig-title">Licensor（許諾者）</div>
+        <div style="margin-bottom:8px;">
+          <div class="small muted">住所</div>
+          <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensor_住所}}</div>
+          <div class="sig-line"></div>
+        </div>
+        {{#if LICENSOR_IS_CORPORATION}}
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="flex:1;">
+            <div class="small muted">会社名</div>
+            <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensor_氏名会社名}}</div>
+            <div class="sig-line"></div>
+          </div>
+          <div style="width:64px; height:64px; border:1.5px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+            <span class="small muted" style="font-size:7.5pt; text-align:center; line-height:1.4;">電子<br>印影</span>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div class="small muted">代表者名</div>
+          <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensor_代表者名}}</div>
+          <div class="sig-line"></div>
+        </div>
+        {{else}}
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="flex:1;">
+            <div class="small muted">氏名</div>
+            <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensor_氏名会社名}}</div>
+            <div class="sig-line"></div>
+          </div>
+          <div style="width:64px; height:64px; border:1.5px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+            <span class="small muted" style="font-size:7.5pt; text-align:center; line-height:1.4;">電子<br>印影</span>
+          </div>
+        </div>
+        {{/if}}
+      </div>
+
+      <!-- Licensee署名欄 -->
+      <div class="sig-box">
+        <div class="sig-title">Licensee（被許諾者）</div>
+        <div style="margin-bottom:8px;">
+          <div class="small muted">住所</div>
+          <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensee_住所}}</div>
+          <div class="sig-line"></div>
+        </div>
+        {{#if LICENSEE_IS_CORPORATION}}
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="flex:1;">
+            <div class="small muted">会社名</div>
+            <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensee_氏名会社名}}</div>
+            <div class="sig-line"></div>
+          </div>
+          <div style="width:64px; height:64px; border:1.5px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+            <span class="small muted" style="font-size:7.5pt; text-align:center; line-height:1.4;">電子<br>印影</span>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div class="small muted">代表者名</div>
+          <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensee_代表者名}}</div>
+          <div class="sig-line"></div>
+        </div>
+        {{else}}
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="flex:1;">
+            <div class="small muted">氏名</div>
+            <div class="small" style="margin-top:2px; margin-bottom:2px;">{{licensee_氏名会社名}}</div>
+            <div class="sig-line"></div>
+          </div>
+          <div style="width:64px; height:64px; border:1.5px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+            <span class="small muted" style="font-size:7.5pt; text-align:center; line-height:1.4;">電子<br>印影</span>
+          </div>
+        </div>
+        {{/if}}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <div class="footer">
+    発行日: {{発行日}}　／　契約書番号: {{契約書番号}}　／　台帳ID: {{台帳ID}}<br>
+    ※ 本別紙は、{{基本契約名}}（{{契約書番号}}）に付随する個別条件を定めるものです。
+  </div>
+
+</body>
+</html>

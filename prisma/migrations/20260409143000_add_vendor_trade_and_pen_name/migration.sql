@@ -1,0 +1,3 @@
+ALTER TABLE "Vendor"
+ADD COLUMN "tradeName" TEXT,
+ADD COLUMN "penName" TEXT;

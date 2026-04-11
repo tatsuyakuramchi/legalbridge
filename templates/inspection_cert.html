@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>検収書 {{issueKey}}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 18mm 20mm 18mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IPAGothic", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+      font-size: 11pt;
+      color: #000;
+      line-height: 1.6;
+    }
+
+    /* ヘッダー */
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 12px;
+    }
+    .doc-title {
+      font-size: 22pt;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+    }
+    .doc-meta {
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.8;
+    }
+    .doc-number {
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    /* 宛先・発行者ブロック */
+    .parties {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .party-to {
+      flex: 1;
+    }
+    .party-to .counterparty-name {
+      font-size: 14pt;
+      font-weight: bold;
+      border-bottom: 1px solid #000;
+      padding-bottom: 2px;
+      margin-bottom: 4px;
+    }
+    .party-from {
+      flex: 1;
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.9;
+    }
+    .party-from .company-name {
+      font-size: 11pt;
+      font-weight: bold;
+    }
+
+    /* 確認文 */
+    .confirmation-text {
+      border: 1px solid #ccc;
+      background: #fafafa;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 10pt;
+    }
+
+    /* メイン明細テーブル */
+    table.main {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 10pt;
+    }
+    table.main th {
+      background: #f0f0f0;
+      border: 1px solid #999;
+      padding: 6px 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    table.main td {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+    }
+    table.main td.right { text-align: right; }
+    table.main td.center { text-align: center; }
+    table.main tr.total-row td {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+
+    /* 検収条件ブロック */
+    .conditions {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .condition-box {
+      flex: 1;
+      border: 1px solid #bbb;
+      padding: 10px 12px;
+    }
+    .condition-box h3 {
+      font-size: 9pt;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      letter-spacing: 0.05em;
+    }
+    .condition-box p {
+      font-size: 10pt;
+      line-height: 1.8;
+    }
+    .condition-box .highlight {
+      font-size: 12pt;
+      font-weight: bold;
+    }
+
+    /* フッター */
+    .doc-footer {
+      margin-top: 24px;
+      border-top: 1px solid #ccc;
+      padding-top: 8px;
+      font-size: 8pt;
+      color: #666;
+      text-align: center;
+    }
+    .stamp-area {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stamp-box {
+      width: 52px;
+      height: 52px;
+      border: 1px solid #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8pt;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <div class="doc-header">
+    <div class="doc-title">検　収　書</div>
+    <div class="doc-meta">
+      <div class="doc-number">No. {{issueKey}}</div>
+      <div>発行日: {{documentDate}}</div>
+      <div>検収期限: <strong>{{inspectionDeadline}}</strong></div>
+    </div>
+  </div>
+
+  <!-- 宛先・発行者 -->
+  <div class="parties">
+    <div class="party-to">
+      <div class="counterparty-name">{{counterparty}} 御中</div>
+      {{#if counterpartyRepresentativeSama}}
+      <div style="font-size:10pt; margin-top:4px;">{{counterpartyRepresentativeSama}}</div>
+      {{/if}}
+      <div style="font-size:9pt; margin-top:4px;">下記の業務について検収しましたので、ご通知申し上げます。</div>
+    </div>
+    <div class="party-from">
+      <div class="company-name">株式会社アークライト</div>
+      <div>〒101-0052 東京都千代田区神田小川町1-2</div>
+      <div>風雲堂ビル2階</div>
+      <div>法務部</div>
+    </div>
+  </div>
+
+  <!-- 検収確認文 -->
+  <div class="confirmation-text">
+    　納品日 <strong>{{deliveryDate}}</strong> に納品された下記業務成果物について、
+    検収期間（{{inspectionDays}}日間）内に確認を行い、検収完了を確認しました。
+    支払条件：{{paymentConditionSummary}}
+  </div>
+
+  <!-- 明細テーブル -->
+  <table class="main">
+    <thead>
+      <tr>
+        <th style="width:50%">品目・業務内容</th>
+        <th style="width:20%">納品日</th>
+        <th style="width:15%">単価（税抜）</th>
+        <th style="width:15%">金額（税抜）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{description}}</td>
+        <td class="center">{{deliveryDate}}</td>
+        <td class="right">¥{{orderAmountStr}}</td>
+        <td class="right">¥{{orderAmountStr}}</td>
+      </tr>
+      <tr>
+        <td colspan="3" class="right">消費税（{{taxRate}}%）</td>
+        <td class="right">¥{{taxAmountStr}}</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="3" class="right">合　計</td>
+        <td class="right">¥{{totalAmountStr}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 条件ボックス -->
+  <div class="conditions">
+    <div class="condition-box">
+      <h3>■ 検収条件</h3>
+      <p>検収期間: 納品日より <span class="highlight">{{inspectionDays}}日間</span></p>
+      <p>検収期限: <span class="highlight">{{inspectionDeadline}}</span></p>
+    </div>
+    <div class="condition-box">
+      <h3>■ 支払条件</h3>
+      <p>{{paymentConditionSummary}}</p>
+      <p>締め日: {{closingDate}}</p>
+      <p>支払期日: <span class="highlight">{{paymentDueDate}}</span></p>
+    </div>
+    <div class="condition-box">
+      <h3>■ 発注情報</h3>
+      <p>発注日: {{orderDate}}</p>
+      <p>管理番号: {{issueKey}}</p>
+      <p>件名: {{orderTitle}}</p>
+    </div>
+  </div>
+
+  <!-- 捺印欄 -->
+  <div class="stamp-area">
+    <div class="stamp-box">担当者</div>
+    <div class="stamp-box">法務部長</div>
+    <div class="stamp-box">取締役</div>
+  </div>
+
+  <!-- フッター -->
+  <div class="doc-footer">
+    本書は {{generatedAt}} に LegalBridge により自動生成されました　|　株式会社アークライト 法務部
+  </div>
+
+</body>
+</html>

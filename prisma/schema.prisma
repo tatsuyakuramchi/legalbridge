@@ -1,0 +1,553 @@
+// prisma/schema.prisma
+// LegalBridge データベーススキーマ
+//
+// 適用コマンド:
+//   npx prisma migrate dev --name init        # ローカル（初回）
+//   npx prisma migrate deploy                 # 本番RDS適用
+//   npx prisma studio                         # GUI確認
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vendor {
+  id                        String   @id @default(cuid())
+  vendorCode                String   @unique
+  vendorName                String
+  tradeName                 String?
+  penName                   String?
+  vendorSuffix              String   @default("御中")
+  entityType                String   @default("corporation")
+  withholdingEnabled        Boolean  @default(false)
+  aliases                   String[]
+  address                   String?
+  phone                     String?
+  email                     String?
+  contactDepartment         String?
+  contactName               String?
+  vendorRepresentative      String?
+  bankInfo                  String?
+  bankName                  String?
+  branchName                String?
+  accountType               String?
+  accountNumber             String?
+  accountHolderKana         String?
+  isInvoiceIssuer           Boolean  @default(false)
+  invoiceRegistrationNumber String?
+  masterContractRef         String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([vendorName])
+}
+
+model Staff {
+  id            String   @id @default(cuid())
+  slackUserId   String   @unique
+  staffName     String
+  department    String?
+  departmentCode String?
+  phone         String?
+  email         String?
+  partyAName    String   @default("株式会社アークライト")
+  partyAAddress String   @default("〒101-0052 東京都千代田区神田小川町1-2 風雲堂ビル2階")
+  partyARep     String   @default("代表取締役 青柳昌行")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([staffName])
+}
+
+model DepartmentWorkflowRule {
+  id                   String   @id @default(cuid())
+  department           String   @unique
+  postChannelId        String?
+  approverSlackId      String?
+  stampOperatorSlackId String?
+  managerSlackId       String?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([department])
+  @@index([isActive])
+}
+
+// ================================================================
+// ライセンス契約（台帳）
+// Backlogのライセンス契約課題と1:1で対応
+// ================================================================
+model LicenseContract {
+  id                  String   @id @default(cuid())
+  backlogIssueKey     String   @unique               // 例: LEGAL-10
+  ledgerId            String   @unique               // 例: LIC-ARC-DOM-202604001
+  licensor            String                         // ライセンサー名
+  licensee            String   @default("株式会社アークライト")
+  originalWork        String                         // 原著作物名
+  licensorBankName    String?
+  licensorBranchName  String?
+  licensorAccountType String?
+  licensorAccountNo   String?
+  licensorAccountName String?
+  licensorInvoiceNum  String?
+
+  // ロイヤリティ条件
+  calcType            RoyaltyCalcType @default(MANUFACTURING)
+  royaltyRate         Decimal  @db.Decimal(5, 4)     // 例: 0.0800
+  distributionRate    Decimal? @db.Decimal(5, 4)     // サブライセンス分配率
+  fixedAmount         Int?                            // 固定額（円）
+
+  // MG（最低保証金）
+  mgAmount            Int      @default(0)            // MG総額
+  mgConsumedToDate    Int      @default(0)            // 累積消化額（自動更新）
+
+  // 支払条件
+  paymentCycle        PaymentCycle @default(EVENT)
+  reportingDays       Int      @default(30)           // イベント後報告期限（日数）
+  paymentDays         Int      @default(30)           // 報告後支払期限（日数）
+  currency            String   @default("JPY")
+
+  // 許諾期間
+  licenseStartDate    DateTime?
+  licenseEndDate      DateTime?
+
+  // ステータス
+  status              LicenseStatus @default(ACTIVE)
+
+  // メタ
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // リレーション
+  manufacturingEvents ManufacturingEvent[]
+  royaltyPayments     RoyaltyPayment[]
+
+  @@index([ledgerId])
+  @@index([licensor])
+}
+
+// ================================================================
+// 製造案件
+// Backlogの製造案件課題と1:1で対応
+// ================================================================
+model ManufacturingEvent {
+  id                  String   @id @default(cuid())
+  backlogIssueKey     String   @unique               // 例: LEGAL-25
+  licenseContractId   String                         // → LicenseContract.id
+  licenseContract     LicenseContract @relation(fields: [licenseContractId], references: [id])
+
+  productName         String
+  edition             String                         // 例: 第3刷
+  completionDate      DateTime
+  quantity            Int                            // 製造総数
+  sampleQuantity      Int      @default(0)           // サンプル数（計算対象外）
+  billableQuantity    Int                            // 課税対象数量
+  msrp                Int                            // MSRP（税抜・円）
+  currency            String   @default("JPY")
+
+  // 計算結果（スナップショット保存）
+  royaltyRate         Decimal  @db.Decimal(5, 4)
+  grossRoyalty        Int                            // グロスロイヤリティ
+  mgConsumedThisTime  Int      @default(0)           // 今回MG充当額
+  actualRoyalty       Int                            // 実支払額（税抜）
+  taxRate             Int      @default(10)
+  taxAmount           Int
+  totalPayment        Int                            // 税込合計
+
+  // 日程
+  reportingDeadline   DateTime
+  paymentDueDate      DateTime
+
+  // Drive保管
+  royaltyReportUrl    String?                        // 利用許諾料計算書URL
+  paymentNoticeUrl    String?                        // 支払通知書URL
+
+  notes               String?
+  status              ManufacturingStatus @default(PENDING)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // リレーション
+  royaltyPayment      RoyaltyPayment?
+
+  @@index([licenseContractId])
+  @@index([completionDate])
+  @@index([paymentDueDate])
+}
+
+// ================================================================
+// ロイヤリティ支払記録
+// 製造案件に紐付く支払の確認・消込管理
+// ================================================================
+model RoyaltyPayment {
+  id                    String   @id @default(cuid())
+  manufacturingEventId  String   @unique
+  manufacturingEvent    ManufacturingEvent @relation(fields: [manufacturingEventId], references: [id])
+  licenseContractId     String
+  licenseContract       LicenseContract @relation(fields: [licenseContractId], references: [id])
+
+  // 支払情報
+  paymentDueDate        DateTime
+  reportingDeadline     DateTime
+  totalAmount           Int                          // 税込支払額
+  currency              String   @default("JPY")
+
+  // 支払状況
+  status                PaymentStatus @default(UNPAID)
+  paidAt                DateTime?
+  paidAmount            Int?
+  transferRef           String?                      // 振込参照番号
+
+  // 報告書提出状況
+  reportedAt            DateTime?
+  reportDocumentUrl     String?
+
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([paymentDueDate])
+  @@index([status])
+}
+
+// ================================================================
+// 法務依頼（Slackからの受付）
+// ================================================================
+model LegalRequest {
+  id              String   @id @default(cuid())
+  backlogIssueKey String   @unique
+  slackUserId     String                             // 依頼者のSlack ID
+  slackChannelId  String?                            // 受付チャンネル
+
+  contractType    String                             // nda / outsourcing / license 等
+  driveFolderKey  String?
+  counterparty    String
+  summary         String
+  deadline        DateTime?
+  notes           String?
+
+  status          RequestStatus @default(RECEIVED)
+
+  // 生成文書URL
+  inspectionCertUrl   String?
+  paymentNoticeUrl    String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // リレーション
+  orderItems      OrderItem[]                    // ← 業務明細（1:N）
+
+  @@index([slackUserId])
+  @@index([status])
+  @@index([deadline])
+}
+
+// ================================================================
+// Backlog課題の同期状態
+// ポーリング方式で差分検知するためのローカル管理テーブル
+// ================================================================
+model BacklogSyncState {
+  id                    String   @id @default(cuid())
+  backlogIssueId        Int      @unique
+  backlogIssueKey       String   @unique
+  issueTypeName         String?
+  statusId              Int
+  statusName            String
+  lastBacklogUpdatedAt  DateTime
+  lastPolledAt          DateTime @default(now())
+  lastProcessedAt       DateTime?
+  lastProcessingError   String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([statusName])
+  @@index([lastBacklogUpdatedAt])
+}
+
+// ================================================================
+// 課題ワークフロー状態
+// 文書生成・承認・押印・締結の進行管理をDBで保持する
+// ================================================================
+model IssueWorkflow {
+  id                    String   @id @default(cuid())
+  backlogIssueKey       String   @unique
+  backlogIssueId        Int?     @unique
+  issueTypeName         String?
+  currentStatusId       Int?
+  currentStatusName     String?
+  currentSummary        String?
+  requestSlackChannel   String?
+  requestSlackTs        String?
+  documentDraft         Json?
+  documentDraftUpdatedAt DateTime?
+  generatedDocuments    Json?
+  primaryDocumentUrl    String?
+
+  approvalRequestedAt   DateTime?
+  approvedAt            DateTime?
+  approvedBySlackId     String?
+  rejectedAt            DateTime?
+  rejectedReason        String?
+  approvalSlackChannel  String?
+  approvalSlackTs       String?
+  approverSlackId       String?
+
+  stampRequestedAt      DateTime?
+  stampType             StampType?
+  stampedAt             DateTime?
+  stampedDriveUrl       String?
+  stampRejectedAt       DateTime?
+  stampRejectedReason   String?
+  stampSlackChannel     String?
+  stampSlackTs          String?
+  stampOperatorSlackId  String?
+  stampCompletedBySlackId String?
+  esignRequestedAt      DateTime?
+  esignCompletedAt      DateTime?
+  esignDriveUrl         String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([currentStatusName])
+  @@index([approvalRequestedAt])
+  @@index([stampRequestedAt])
+}
+
+model WorkExecution {
+  id             String              @id @default(cuid())
+  executionKey   String              @unique
+  workType       String
+  issueKey       String
+  source         String
+  status         WorkExecutionStatus @default(PENDING)
+  attemptCount   Int                 @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  lastError      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([workType])
+  @@index([issueKey])
+  @@index([status])
+}
+
+// ================================================================
+// 業務明細（OrderItem）
+// 発注課題の業務明細行を1行1レコードで管理
+// 発注課題（LegalRequest）と1:N
+// ================================================================
+model OrderItem {
+  id              String   @id @default(cuid())
+  legalRequestId  String                         // → LegalRequest.id
+  legalRequest    LegalRequest @relation(fields: [legalRequestId], references: [id])
+  backlogIssueKey String?  @unique              // 明細管理用Backlog課題キー
+
+  itemNo          Int                            // 明細番号（①②③）
+  vendorCode      String?
+  category        String?
+  payMethod       String?
+  installmentCount Int?
+  paymentStartDate DateTime?
+  paymentIntervalMonths Int?
+  subscriptionMonths Int?
+  quantity        Int      @default(1)
+  unitPrice       Int?
+  description     String                         // 業務内容・成果物名
+  spec            String?                        // 仕様・詳細
+  amount          Int                            // 金額（税抜・円）
+  dueDate         DateTime                       // 納期
+  status          OrderItemStatus @default(PENDING)
+
+  // 変更後の現行値（ChangeLogで変更前後を管理）
+  // amountやdueDateが変わってもここが常に「現在値」
+  latestAmount    Int                            // 現行金額（変更後はこちらを参照）
+  latestDueDate   DateTime                       // 現行納期
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // リレーション
+  deliveryEvents  DeliveryEvent[]
+  changeLogs      ChangeLog[]
+  dueReminderLogs OrderDueReminderLog[]
+
+  @@index([legalRequestId])
+  @@index([dueDate])
+  @@index([status])
+  @@unique([legalRequestId, itemNo])
+}
+
+model OrderDueReminderLog {
+  id              String   @id @default(cuid())
+  orderItemId      String
+  orderItem        OrderItem @relation(fields: [orderItemId], references: [id])
+  reminderType     String
+  reminderDate     DateTime
+  createdAt        DateTime @default(now())
+
+  @@unique([orderItemId, reminderType, reminderDate])
+  @@index([reminderDate])
+}
+
+// ================================================================
+// 納品イベント（DeliveryEvent）
+// 明細単位の納品・検収を管理
+// OrderItemと1:N（分割納品・再納品に対応）
+// ================================================================
+model DeliveryEvent {
+  id                  String   @id @default(cuid())
+  backlogIssueKey     String   @unique            // 納品報告課題のキー（例: LEGAL-45）
+  orderItemId         String                       // → OrderItem.id
+  orderItem           OrderItem @relation(fields: [orderItemId], references: [id])
+
+  deliveryNo          Int      @default(1)         // 納品回数（再納品時に2,3...）
+  deliveredAt         DateTime                     // 納品日
+  deliveredAmount     Int?                         // 今回納品分の金額（分割納品時）
+  note                String?                      // 納品備考
+
+  // 検収
+  inspectionDeadline  DateTime                     // 検収期限
+  inspectedAt         DateTime?                    // 検収完了日
+  inspectionResult    InspectionResult?            // PASSED / REJECTED
+  rejectionReason     String?                      // 差し戻し理由
+
+  // 生成文書
+  inspectionCertUrl   String?                      // 検収書 Drive URL
+  paymentNoticeUrl    String?                      // 支払通知書 Drive URL
+
+  status              DeliveryStatus @default(PENDING)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([orderItemId])
+  @@index([inspectionDeadline])
+  @@index([status])
+}
+
+// ================================================================
+// 変更履歴（ChangeLog）
+// 金額変更・納期変更・成果物変更の全記録
+// 変更理由を必須にして検収書に反映できるようにする
+// ================================================================
+model ChangeLog {
+  id            String   @id @default(cuid())
+
+  // 対象（OrderItem or DeliveryEvent どちらかを参照）
+  targetType    ChangeTargetType
+  orderItemId   String?
+  orderItem     OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  // 変更内容
+  fieldName     String                             // "amount" / "dueDate" / "description" / "spec"
+  beforeValue   String                             // 変更前の値（文字列で保存）
+  afterValue    String                             // 変更後の値
+  reason        String                             // 変更理由（必須）
+
+  // 誰が変更したか
+  changedBy     String                             // Slack userId
+  changedByName String?                            // 表示名
+  changedAt     DateTime @default(now())
+
+  // 承認
+  approvedBy    String?                            // 承認者（任意）
+  approvedAt    DateTime?
+
+  @@index([orderItemId])
+  @@index([changedAt])
+}
+
+// ================================================================
+// Enum定義（追加分）
+// ================================================================
+
+enum OrderItemStatus {
+  PENDING       // 未納品
+  PARTIAL       // 一部納品済み
+  DELIVERED     // 納品完了（検収前）
+  INSPECTED     // 検収完了
+  REJECTED      // 差し戻し中
+}
+
+enum DeliveryStatus {
+  PENDING       // 検収待ち
+  PASSED        // 検収合格
+  REJECTED      // 差し戻し
+}
+
+enum InspectionResult {
+  PASSED
+  REJECTED
+}
+
+enum ChangeTargetType {
+  ORDER_ITEM    // 業務明細の変更
+  DELIVERY      // 納品イベントの変更
+}
+
+// ================================================================
+// Enum定義（既存）
+// ================================================================
+
+enum RoyaltyCalcType {
+  MANUFACTURING   // 製造数量ベース
+  SALES           // 売上高ベース
+  SUBLICENSE      // サブライセンス分配
+  FIXED           // 固定額
+}
+
+enum PaymentCycle {
+  EVENT           // イベント都度
+  MONTHLY         // 月次
+  QUARTERLY       // 四半期
+  SEMI_ANNUAL     // 半期
+  ANNUAL          // 年次
+}
+
+enum LicenseStatus {
+  ACTIVE          // 有効
+  EXPIRED         // 期限切れ
+  TERMINATED      // 解除
+  PENDING         // 締結前
+}
+
+enum ManufacturingStatus {
+  PENDING         // 計算待ち
+  CALCULATED      // 計算済み
+  REPORTED        // 報告済み
+  PAID            // 支払済み
+}
+
+enum PaymentStatus {
+  UNPAID          // 未払い
+  OVERDUE         // 支払期限超過
+  PAID            // 支払済み
+  ZERO            // 支払不要（MG充当のみ）
+}
+
+enum RequestStatus {
+  RECEIVED        // 受付済み
+  IN_PROGRESS     // 対応中
+  COMPLETED       // 完了
+  CANCELLED       // キャンセル
+}
+
+enum StampType {
+  PHYSICAL
+  ELECTRONIC
+}
+
+enum WorkExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}

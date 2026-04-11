@@ -1,0 +1,50 @@
+{
+  "name": "legalbridge-proto",
+  "version": "0.2.0",
+  "description": "LegalBridge プロトタイプ - Slack × Backlog × GWS × PostgreSQL 法務連携システム",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "build": "tsc",
+    "test:unit": "npm run build && node --test dist/tests/**/*.test.js",
+    "start": "node dist/index.js",
+    "start:gateway": "node dist/gateway/index.js",
+    "start:work": "node dist/work/index.js",
+    "start:cloudrun": "node dist/cloudrun.js",
+    "gateway:check": "node dist/cli/checkGatewayConfig.js",
+    "backlog:custom-fields": "node dist/cli/listBacklogCustomFields.js",
+    "backlog:cleanup-obsolete-fields": "node dist/cli/cleanupObsoleteBacklogFields.js",
+    "backlog:ensure-minimum-issue-types": "node dist/cli/ensureBacklogMinimumIssueTypes.js",
+    "backlog:ensure-minimum-fields": "node dist/cli/ensureBacklogMinimumFields.js",
+    "backlog:sync-project-settings": "node dist/cli/syncBacklogProjectSettings.js",
+    "sample:docs": "node dist/cli/renderSampleDocs.js",
+    "dryrun:planning": "node dist/cli/dryRunPlanning.js",
+    "dryrun:planning:pdf": "pwsh -ExecutionPolicy Bypass -File scripts/convert-dryrun-pdfs.ps1",
+    "staging:validate": "powershell -ExecutionPolicy Bypass -File scripts/validate-staging-config.ps1",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "db:reset": "prisma migrate reset"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.15.0",
+    "@slack/bolt": "^3.19.0",
+    "@slack/web-api": "^7.3.0",
+    "@types/papaparse": "^5.5.2",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^140.0.1",
+    "handlebars": "^4.7.8",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "prisma": "^5.15.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

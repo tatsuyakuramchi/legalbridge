@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.gcloud/
+secrets/
+tmp/
+*.log
+cloudrun*.env.yaml
+cloudrun*.secrets.yaml
+!cloudrun*.env.example.yaml
+!cloudrun*.secrets.example.yaml

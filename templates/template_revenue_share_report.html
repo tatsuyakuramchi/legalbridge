@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 15mm 20mm; }
+
+    body {
+      font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+      font-size: 10pt;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+    }
+
+    .page-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #333;
+    }
+
+    .doc-title {
+      font-size: 22pt;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: #000;
+    }
+
+    .meta-info {
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.8;
+      color: #555;
+    }
+
+    .address-area {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      padding: 15px 0;
+    }
+
+    .recipient-block { flex: 1; padding-right: 20px; }
+
+    .recipient-name {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 5px;
+      display: inline-block;
+      min-width: 200px;
+    }
+
+    .sender-block {
+      text-align: right;
+      flex: 1;
+      font-size: 9pt;
+      line-height: 1.8;
+      color: #444;
+    }
+
+    .sender-name {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .info-box {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      font-size: 9pt;
+    }
+
+    .invoice-box {
+      border: 2px solid #333;
+      padding: 15px;
+      margin-top: 20px;
+      background: #fff;
+    }
+
+    .invoice-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px dotted #ccc;
+    }
+
+    .invoice-total {
+      display: flex;
+      justify-content: space-between;
+      border-top: 2px solid #333;
+      margin-top: 10px;
+      padding-top: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    table.detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 9pt;
+    }
+
+    table.detail-table th {
+      background-color: #eee;
+      border: 1px solid #999;
+      padding: 6px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    table.detail-table td {
+      border: 1px solid #999;
+      padding: 8px;
+      vertical-align: top;
+    }
+
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .sub-info { font-size: 8pt; color: #666; margin-top: 2px; }
+
+    .legal-note {
+      font-size: 8pt;
+      color: #444;
+      margin-top: 15px;
+      padding: 10px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <div class="header-row">
+      <div>
+        <span class="doc-title">業務委託報酬計算書</span>
+      </div>
+      <div class="meta-info">
+        No: {{NOTICE_ID}}<br>
+        発行日: {{ISSUE_DATE}}
+      </div>
+    </div>
+
+    <div class="address-area">
+      <div class="recipient-block">
+        <div class="recipient-name">{{CONTRACTOR_NAME}} 御中</div>
+        {{#if CONTRACTOR_INVOICE_NUM}}
+          <div style="font-size:10pt; font-weight:bold; margin-top:4px;">
+            登録番号: {{CONTRACTOR_INVOICE_NUM}}
+          </div>
+        {{/if}}
+      </div>
+      <div class="sender-block">
+        <div class="sender-name">株式会社アークライト</div>
+        〒101-0052<br>
+        東京都千代田区神田小川町1-2 風雲堂ビル２階
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>発注書番号:</strong> {{ORDER_NO}}
+      {{#if PAYMENT_DATE}}
+      <br><strong>お支払予定日:</strong> {{PAYMENT_DATE}}
+      {{/if}}
+      {{#if PAYMENT_METHOD}}
+      <br><strong>お振込先:</strong> {{PAYMENT_METHOD}}
+      {{/if}}
+    </div>
+
+    <p style="margin-bottom:15px; font-size:9pt;">
+      上記発注に基づく報酬を、下記のとおり計算し報告いたします。
+    </p>
+
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th style="width:14%;">対象期間</th>
+          <th style="width:28%;">業務内容 / 対象商品</th>
+          <th style="width:14%;">売上基準額</th>
+          <th style="width:10%;">配分率</th>
+          <th style="width:20%;">報酬額(税抜)</th>
+          <th style="width:14%;">備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr>
+          <td class="center">{{period}}</td>
+          <td>
+            <strong>{{name}}</strong>
+            {{#if detail}}
+              <div class="sub-info">{{detail}}</div>
+            {{/if}}
+            {{#if calculation}}
+              <div class="sub-info">{{calculation}}</div>
+            {{/if}}
+          </td>
+          <td class="right">
+            {{#if baseAmount}}
+              ¥{{formatCurrency baseAmount}}
+            {{else}}
+              -
+            {{/if}}
+          </td>
+          <td class="center">{{rate}}</td>
+          <td class="right">
+            ¥{{formatCurrency amount}}
+            {{#if deduction}}
+              <div class="sub-info" style="color:#c2410c;">控除: ¥{{formatCurrency deduction}}</div>
+            {{/if}}
+            {{#if deduction_note}}
+              <div class="sub-info">{{deduction_note}}</div>
+            {{/if}}
+          </td>
+          <td style="font-size:8pt;">{{note}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class="invoice-box">
+      {{#if TOTAL_NONTAX}}
+      <div class="invoice-row" style="color:#666;">
+        <span>対象外 (立替金等)</span>
+        <span>¥ {{formatCurrency TOTAL_NONTAX}}</span>
+      </div>
+      {{/if}}
+
+      {{#if MINIMUM_GUARANTEE}}
+      <div class="invoice-row">
+        <span>最低保証額 (適用済)</span>
+        <span>¥ {{formatCurrency MINIMUM_GUARANTEE}}</span>
+      </div>
+      {{/if}}
+
+      <div class="invoice-total">
+        <span>業務委託報酬 合計 (税抜)</span>
+        <span>¥ {{formatCurrency TOTAL_NET}}</span>
+      </div>
+    </div>
+
+    <div class="legal-note">
+      <strong>【ご確認のお願い】</strong><br>
+      記載内容に誤りがある場合は、<strong>発行日より5営業日以内</strong>にご連絡ください。<br>
+      期日までにご連絡がない場合、記載内容を確認・承認いただいたものとして取り扱わせていただきます。
+    </div>
+
+    {{#if SPECIAL_NOTE}}
+    <div style="margin-top:10px; padding:10px; background:#f9f9f9; border:1px solid #ddd; font-size:8.5pt;">
+      <strong>特記事項:</strong><br>
+      {{SPECIAL_NOTE}}
+    </div>
+    {{/if}}
+  </div>
+</body>
+</html>

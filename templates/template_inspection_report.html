@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { size: A4; margin: 15mm 20mm; }
+    
+    body {
+      font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+      font-size: 10pt;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+    }
+    
+    .page-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+    }
+    
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #333;
+    }
+    
+    .doc-title {
+      font-size: 22pt;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: #000;
+    }
+    
+    .doc-subtitle {
+      font-size: 9pt;
+      color: #666;
+      margin-left: 8px;
+      font-weight: normal;
+    }
+    
+    .meta-info {
+      text-align: right;
+      font-size: 9pt;
+      line-height: 1.8;
+      color: #555;
+    }
+    
+    .address-area {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      padding: 15px 0;
+    }
+    
+    .recipient-block { flex: 1; padding-right: 20px; }
+    
+    .recipient-name {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 5px;
+      display: inline-block;
+      min-width: 200px;
+    }
+    
+    .sender-block {
+      text-align: right;
+      flex: 1;
+      font-size: 9pt;
+      line-height: 1.8;
+      color: #444;
+    }
+    
+    .sender-name {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    
+    .invoice-box {
+      border: 2px solid #333;
+      padding: 15px;
+      margin-top: 20px;
+      background: #fff;
+    }
+    
+    .invoice-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px dotted #ccc;
+    }
+    
+    .invoice-total {
+      display: flex;
+      justify-content: space-between;
+      border-top: 2px solid #333;
+      margin-top: 10px;
+      padding-top: 10px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    table.detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 9pt;
+    }
+    
+    table.detail-table th {
+      background-color: #eee;
+      border: 1px solid #999;
+      padding: 6px;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    table.detail-table td {
+      border: 1px solid #999;
+      padding: 8px;
+      vertical-align: top;
+    }
+    
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .sub-info { font-size: 8pt; color: #666; margin-top: 2px; }
+    
+    .legal-note {
+      font-size: 8pt;
+      color: #444;
+      margin-top: 15px;
+      padding: 10px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+    
+    .approval-section {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 30px;
+      gap: 15px;
+    }
+    
+    .approval-box {
+      border: 1px solid #000;
+      width: 100px;
+      text-align: center;
+    }
+    
+    .approval-title {
+      background-color: #eee;
+      padding: 4px;
+      font-size: 8pt;
+      border-bottom: 1px solid #000;
+    }
+    
+    .approval-stamp {
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9pt;
+      padding: 4px;
+      word-break: break-all;
+    }
+    
+    .approval-name {
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  
+  
+  <div class="page-container">
+    <div class="header-row">
+      <div>
+        <span class="doc-title">検収書</span>
+      </div>
+      <div class="meta-info">
+        No: {{delivery_id}}<br>
+        発行日: 
+      </div>
+    </div>
+    
+    <div class="address-area">
+      <div class="recipient-block">
+        <div class="recipient-name">{{vendor_name}} 御中</div>
+        {{#if vendor_representative_sama}}
+          <div style="font-size:10pt; font-weight:bold; margin-top:4px;">{{vendor_representative_sama}}</div>
+        {{/if}}
+        {{#if vendor_invoice_num}}
+          <div style="font-size:10pt; font-weight:bold; margin-top:4px;">
+            登録番号: {{vendor_invoice_num}}
+          </div>
+        {{else}}
+          <div style="font-size:9pt; color:#666; margin-top:4px;">(登録番号なし)</div>
+        {{/if}}
+      </div>
+      <div class="sender-block">
+        <div class="sender-name">株式会社アークライト</div>
+        〒101-0052<br>
+        東京都千代田区神田小川町1-2 風雲堂ビル２階
+      </div>
+    </div>
+    
+    {{#if order_no}}
+    <div style="margin-bottom:15px; padding:10px; background:#f0f9ff; border:1px solid #bae6fd; font-size:9pt;">
+      <strong>発注書番号:</strong> {{order_no}}
+      {{#if contract_no}}
+       （契約書番号: {{contract_no}}）
+      {{/if}}
+      {{#if project_name}}
+      <br><strong>案件名:</strong> {{project_name}}
+      {{/if}}
+    </div>
+    {{/if}}
+
+    <p style="margin-bottom:15px; font-size:9pt;">
+      以下の案件について納品・業務完了を確認し、検収いたしました。
+    </p>
+    
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th style="width:15%;">検収日</th>
+          <th>内容</th>
+          <th style="width:12%;">納品種別</th>
+          <th style="width:8%;">数量</th>
+          <th style="width:20%;">金額(税抜)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#if items}}
+        {{#each items}}
+        <tr>
+          <td class="center">{{formatDate inspection_date}}</td>
+          <td>
+            <strong>{{name}}</strong>
+            {{#if order_no}}
+            <div class="sub-info">発注番号: {{order_no}}</div>
+            {{/if}}
+            {{#if spec}}
+            <div class="sub-info">仕様: {{spec}}</div>
+            {{/if}}
+            {{#if no}}
+            <div class="sub-info">No: {{no}}</div>
+            {{/if}}
+            {{#if hasRevision}}
+            <div class="sub-info" style="color:#c2410c;">📝 修正: {{revisionDetail}}</div>
+            {{/if}}
+            {{#if hasAmountChange}}
+            <div class="sub-info" style="color:#dc2626;">
+              💰 金額変更: ¥{{formatCurrency originalAmount}} → ¥{{formatCurrency newAmount}}
+              {{#if amountChangeReason}} ({{amountChangeReason}}){{/if}}
+            </div>
+            {{/if}}
+            {{#if notes}}
+            <div class="sub-info">{{notes}}</div>
+            {{/if}}
+          </td>
+          <td class="center">
+            {{#if isCompleted}}
+            <div style="color:#059669; font-weight:bold;">✅ 完了</div>
+            {{else}}
+            {{#if partial_number}}
+            一部納品
+            <div style="font-size:8pt; color:#666;">({{partial_number}}回目{{#if total_partials}}/{{total_partials}}{{/if}})</div>
+            {{else}}
+            全部納品
+            {{/if}}
+            {{/if}}
+          </td>
+          <td class="center">{{thisTimeQuantity}}</td>
+          <td class="right">¥{{formatCurrency amount_ex_tax}}</td>
+        </tr>
+        {{/each}}
+        {{else}}
+        <tr>
+          <td class="center">{{formatDate approval_date}}</td>
+          <td>
+            <strong>{{business_description}}</strong>
+            {{#if order_no}}
+            <div class="sub-info">発注番号: {{order_no}}</div>
+            {{/if}}
+            {{#if milestone_name}}
+            <div class="sub-info" style="color:#6b21a8;">🎯 {{milestone_name}}</div>
+            {{/if}}
+            <div class="sub-info">{{delivery_url}}</div>
+          </td>
+          <td class="center">
+            {{deliveryTypeLabel}}
+            {{#if partial_number}}
+            <div style="font-size:8pt; color:#666;">({{partial_number}}回目{{#if total_partials}}/{{total_partials}}{{/if}})</div>
+            {{/if}}
+            {{#if is_final_delivery}}
+            <div style="font-size:8pt; color:#059669; font-weight:bold;">✓ 最終納品</div>
+            {{/if}}
+          </td>
+          <td class="center">1</td>
+          <td class="right">¥{{formatCurrency amount_ex_tax}}</td>
+        </tr>
+        {{/if}}
+      </tbody>
+    </table>
+
+    <div class="invoice-box">
+      {{#if items}}
+      <div class="invoice-row">
+        <span>10%対象 支払額 (税抜)</span>
+        <span>¥ {{formatCurrency totalExTax}}</span>
+      </div>
+      <div class="invoice-row">
+        <span>消費税額 (10%)</span>
+        <span>¥ </span>
+      </div>
+      {{/if}}
+      <div class="invoice-total">
+        <span>検収対象金額 合計 ({{#if items}}税込{{else}}税抜{{/if}})</span>
+        <span>¥ {{formatCurrency totalIncTax}}</span>
+      </div>
+    </div>
+
+    {{#if approver_name}}
+    <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; font-size: 9pt;">
+      {{#if approver_name}}
+      <strong>検収承認者:</strong> {{approver_name}}
+      {{#if approver_department}}({{approver_department}}){{/if}}<br>
+      {{/if}}
+      {{#if reviewer_name}}
+      <strong>検収確認者:</strong> {{reviewer_name}}
+      {{#if reviewer_department}}({{reviewer_department}}){{/if}}<br>
+      {{/if}}
+      {{#if person_name}}
+      <strong>検収担当者:</strong> {{person_name}}
+      {{#if person_department}}({{person_department}}){{/if}}<br>
+      {{/if}}
+      <strong>検収日:</strong> {{formatDateTime approval_date}}
+      {{#if approval_comments}}
+      <div style="margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 8px;">
+        <strong>コメント:</strong><br>{{approval_comments}}
+      </div>
+      {{/if}}
+    </div>
+    {{/if}}
+
+    <div class="approval-section">
+      <div class="approval-box">
+        <div class="approval-title">承認</div>
+        <div class="approval-stamp">
+          {{#if approver_name}}
+          <span class="approval-name">{{approver_name}}</span>
+          {{/if}}
+        </div>
+      </div>
+      <div class="approval-box">
+        <div class="approval-title">確認</div>
+        <div class="approval-stamp">
+          {{#if reviewer_name}}
+          <span class="approval-name">{{reviewer_name}}</span>
+          {{/if}}
+        </div>
+      </div>
+      <div class="approval-box">
+        <div class="approval-title">担当</div>
+        <div class="approval-stamp">
+          {{#if person_name}}
+          <span class="approval-name">{{person_name}}</span>
+          {{/if}}
+        </div>
+      </div>
+    </div>
+
+    <div class="legal-note">
+      <strong>【ご確認のお願い】</strong><br>
+      記載内容に誤りがある場合は、<strong>発行日より5営業日以内</strong>にご連絡ください。<br>
+      期日までにご連絡がない場合、記載内容を確認・承認いただいたものとして取り扱わせていただきます。
+    </div>
+  </div>
+</body>
+</html>

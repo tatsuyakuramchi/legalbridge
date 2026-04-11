@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Overseas IP Amendment Agreement - {{CONTRACT_NO}}</title>
+  <style>
+    @page { size: A4; margin: 22mm; }
+    body {
+      font-family: "Noto Serif", "Times New Roman", serif;
+      font-size: 10.5pt;
+      line-height: 1.7;
+      color: #111;
+    }
+    h1 { text-align: center; font-size: 17pt; margin-bottom: 24px; }
+    .meta { text-align: right; font-size: 9pt; margin-bottom: 18px; color: #555; }
+    .box {
+      border: 1px solid #bbb;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .box h2 { font-size: 12pt; margin: 0 0 8px; }
+    .article { margin-bottom: 16px; }
+    .article-title { font-weight: bold; margin-bottom: 4px; }
+    .label { font-weight: bold; }
+    .mono { font-family: "Courier New", monospace; }
+    .pre { white-space: pre-wrap; }
+    .switch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .switch-card {
+      position: relative;
+      border: 1px solid #444;
+      padding: 10px 12px;
+      min-height: 64px;
+      overflow: hidden;
+    }
+    .switch-card.inactive::before {
+      content: "";
+      position: absolute;
+      left: -12%;
+      right: -12%;
+      top: 50%;
+      border-top: 3px solid rgba(90, 90, 90, 0.75);
+      transform: rotate(-24deg);
+      transform-origin: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .switch-card.inactive::after {
+      content: "";
+      position: absolute;
+      left: -12%;
+      right: -12%;
+      top: 50%;
+      border-top: 1px solid rgba(90, 90, 90, 0.45);
+      transform: rotate(-24deg) translateY(5px);
+      transform-origin: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .switch-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .switch-note {
+      font-size: 9.3pt;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="meta">Amendment No. {{CONTRACT_NO}}</div>
+  <h1>Overseas IP Amendment Agreement</h1>
+
+  <div class="box">
+    <h2>Reference Agreement</h2>
+    <div><span class="label">Base Agreement:</span> <span class="mono">{{BASE_AGREEMENT_KEY}}</span></div>
+    <div><span class="label">Amendment Date:</span> {{CONTRACT_DATE_FORMATTED}}</div>
+    <div><span class="label">Effective Date:</span> {{EFFECTIVE_DATE}}</div>
+    <div><span class="label">Change Mode:</span> <span class="mono">{{CHANGE_MODE}}</span></div>
+    <div><span class="label">New Deal Structure:</span> <span class="mono">{{DEAL_STRUCTURE}}</span></div>
+    <div><span class="label">Original Work / IP:</span> {{ORIGINAL_WORK}}</div>
+    <div class="switch-grid">
+      <div class="switch-card {{#if_eq DEAL_STRUCTURE "product_out"}}inactive{{/if_eq}}">
+        <div class="switch-title">License-Out Structure</div>
+        <div class="switch-note">Rights grant model with royalty or similar exploitation consideration.</div>
+      </div>
+      <div class="switch-card {{#if_eq DEAL_STRUCTURE "license_out"}}inactive{{/if_eq}}">
+        <div class="switch-title">Product-Out Structure</div>
+        <div class="switch-note">Finished goods supply model with purchase, resale, and delivery mechanics.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">1. Amendment Purpose</div>
+    {{#if_eq CHANGE_MODE "license_to_product"}}
+    <div>The parties agree to convert the commercial structure from license-out to product-out effective from the Effective Date.</div>
+    {{else}}
+      {{#if_eq CHANGE_MODE "product_to_license"}}
+      <div>The parties agree to convert the commercial structure from product-out to license-out effective from the Effective Date.</div>
+      {{else}}
+      <div>The parties agree to amend selected commercial and operational provisions while maintaining the overall contractual relationship.</div>
+      {{/if_eq}}
+    {{/if_eq}}
+  </div>
+
+  <div class="article">
+    <div class="article-title">2. Amended Clauses</div>
+    <div class="pre">{{AMENDMENT_CLAUSES}}</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">3. Updated Commercial Scope</div>
+    <div><span class="label">Licensed Rights:</span></div>
+    <div class="pre">{{LICENSE_SCOPE}}</div>
+    <div style="margin-top:8px;"><span class="label">Product Scope:</span></div>
+    <div class="pre">{{IP_PRODUCT_SCOPE}}</div>
+    <div style="margin-top:8px;"><span class="label">Territory / Language:</span> {{TERRITORY}}</div>
+    <div><span class="label">Revenue Model:</span> {{REVENUE_MODEL}}</div>
+    <div class="pre" style="margin-top:8px;">{{ROYALTY_TERMS}}</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">4. Transition and Remaining Rights</div>
+    <div style="margin-bottom:8px;"><span class="label">Inventory / Sell-off:</span></div>
+    <div class="pre">{{INVENTORY_SELLOFF}}</div>
+    <div style="margin:8px 0;"><span class="label">Ownership / Title Treatment:</span></div>
+    <div class="pre">{{TITLE_TRANSFER_MODEL}}</div>
+  </div>
+
+  {{#if SPECIAL_NOTES}}
+  <div class="box">
+    <h2>Special Notes</h2>
+    <div class="pre">{{SPECIAL_NOTES}}</div>
+  </div>
+  {{/if}}
+
+  <div class="article">
+    <div class="article-title">5. Continuing Effect</div>
+    <div>Except as expressly amended by this agreement, the base agreement shall remain in full force and effect.</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>売買基本契約書（保証金・掛け売り版）- {{CONTRACT_NO}}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 25mm 20mm 25mm 25mm;
+      @bottom-center {
+        content: "- " counter(page) " -";
+        font-size: 9pt;
+        font-family: "Noto Serif CJK JP", "IPAMincho", serif;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Noto Serif CJK JP", "IPAMincho", "MS Mincho", serif;
+      font-size: 10.5pt;
+      line-height: 1.9;
+      color: #000;
+    }
+
+    h1.contract-title {
+      text-align: center;
+      font-size: 15pt;
+      font-weight: bold;
+      letter-spacing: 0.3em;
+      margin-bottom: 2em;
+      text-decoration: underline;
+    }
+
+    .preamble {
+      margin-bottom: 1.5em;
+      text-indent: 1em;
+    }
+
+    /* Article structure */
+    ol.articles {
+      list-style: none;
+      padding: 0;
+      counter-reset: article;
+    }
+
+    ol.articles > li {
+      counter-increment: article;
+      margin-bottom: 1.2em;
+    }
+
+    ol.articles > li > .article-title {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    ol.articles > li > .article-title::before {
+      content: counter(article) ". ";
+    }
+
+    /* Sub-items */
+    ol.items {
+      list-style: none;
+      padding-left: 1.5em;
+      counter-reset: item;
+    }
+
+    ol.items > li {
+      counter-increment: item;
+      padding-left: 2em;
+      text-indent: -2em;
+      margin-bottom: 0.5em;
+    }
+
+    ol.items > li::before {
+      content: counter(item) "　";
+      font-weight: normal;
+    }
+
+    ol.sub-items {
+      list-style: none;
+      padding-left: 2em;
+      counter-reset: subitem;
+      margin-top: 0.3em;
+    }
+
+    ol.sub-items > li {
+      counter-increment: subitem;
+      padding-left: 2em;
+      text-indent: -2em;
+      margin-bottom: 0.3em;
+    }
+
+    ol.sub-items > li::before {
+      content: "(" counter(subitem) ") ";
+    }
+
+    ol.sub-sub-items {
+      list-style: none;
+      padding-left: 2em;
+      counter-reset: subsubitem;
+      margin-top: 0.3em;
+    }
+
+    ol.sub-sub-items > li {
+      counter-increment: subsubitem;
+      padding-left: 2.5em;
+      text-indent: -2.5em;
+      margin-bottom: 0.3em;
+    }
+
+    ol.sub-sub-items > li::before {
+      content: counter(subsubitem, katakana) "　";
+    }
+
+    /* Placeholder styles */
+    .ph {
+      border-bottom: 1px solid #000;
+      display: inline-block;
+      min-width: 5em;
+    }
+
+    .ph-blank {
+      display: inline-block;
+      border-bottom: 1px solid #000;
+      min-width: 8em;
+    }
+
+    /* Signature block */
+    .signature-block {
+      margin-top: 4em;
+      page-break-inside: avoid;
+    }
+
+    .signature-block .date-line {
+      text-align: right;
+      margin-bottom: 2em;
+    }
+
+    .party {
+      margin-bottom: 2em;
+    }
+
+    .party .party-label {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    .party .party-row {
+      display: flex;
+      margin-bottom: 0.3em;
+    }
+
+    .party .party-row .label {
+      min-width: 4em;
+    }
+
+    .party .party-row .value {
+      flex: 1;
+    }
+
+    /* Special terms box */
+    .special-terms {
+      border: 1px solid #666;
+      padding: 0.8em 1em;
+      margin-top: 0.8em;
+      min-height: 3em;
+    }
+
+    .special-terms-label {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    /* Whitespace footer note */
+    .margin-note {
+      text-align: center;
+      margin: 2em 0 3em;
+      font-size: 9pt;
+    }
+
+    .page-break { page-break-after: always; }
+    .no-break { page-break-inside: avoid; }
+
+    .contract-meta {
+      text-align: right;
+      font-size: 9pt;
+      margin-bottom: 1em;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 契約番号（アプリ側採番） -->
+<div class="contract-meta">契約番号：{{CONTRACT_NO}}</div>
+
+<h1 class="contract-title">売買基本契約書</h1>
+
+<!-- 頭書き -->
+<p class="preamble">
+  <span class="ph-blank">{{PARTY_B_NAME}}</span>（以下「甲」という。）と株式会社アークライト（以下「乙」という。）は、乙が取り扱う商品（以下「本製品」という）の売買に関し、基本的事項を定めるため、以下のとおり契約（以下「本契約」という）を締結する。
+</p>
+
+<ol class="articles">
+
+  <!-- 第１条 -->
+  <li>
+    <div class="article-title">（本契約と個別契約）</div>
+    <ol class="items">
+      <li>本契約は、本製品にかかる個々の本製品の売買契約（以下「個別契約」という。）に共通する事項について定めるものであり、甲および乙は、本契約および個別契約を遵守する。</li>
+      <li>本契約は、個別契約において、本契約と異なる事項を定めたときは、本契約が優先して適用される。但し、個別契約において、本契約に定める事項を排除する旨を明記した上で、本契約と異なる事項を定めた場合に限り、個別契約の内容が優先して適用される。</li>
+    </ol>
+  </li>
+
+  <!-- 第２条 ※Credit版：掛け売り（月次締め・翌月払い） -->
+  <li>
+    <div class="article-title">（個別契約の成立）</div>
+    <ol class="items">
+      <li>個別契約は、甲が、乙所定の注文書（発行年月日・品名・単価・数量・合計金額（税込）・納入期日・納入場所・納入方法・その他必要事項を記載）を乙に送付し、乙がこれを承諾する書面を発送することにより成立する。</li>
+      <li>前項の規定は、甲及び乙が協議の上でこれに代わる方法を定めることを妨げない。</li>
+    </ol>
+  </li>
+
+  <!-- 第３条 -->
+  <li>
+    <div class="article-title">（納品）</div>
+    <ol class="items">
+      <li>乙から甲への納品は、甲が注文書で指定した納品期日までに、甲が指定した納品場所に本製品が納品されたときに完了する。</li>
+      <li>前項の納品に係る費用は、納品代金金額の合計が<span class="ph">{{DELIVERY_FEE_THRESHOLD}}</span>円（税別）以上の場合、乙の負担とし、<span class="ph">{{DELIVERY_FEE_THRESHOLD}}</span>円未満の場合は甲が負担する。</li>
+    </ol>
+  </li>
+
+  <!-- 第４条 -->
+  <li>
+    <div class="article-title">（検品）</div>
+    <ol class="items">
+      <li>甲は、本商品の納品後<span class="ph">{{INSPECTION_PERIOD_DAYS}}</span>営業日（以下「検査期間」という。）以内に甲乙が協議により定めた方法により納品物の検査を行い、種類、品質又は数量に関して本契約及び個別契約の内容に適合しないもの（以下「不適合」という。）があった場合、検査期間内に、乙に対し、当該不適合の具体的な内容を明示した書面を交付する。</li>
+      <li>乙は、前項に定める書面が交付された場合、当該書面の到達後<span class="ph">{{INSPECTION_PERIOD_DAYS}}</span>営業日以内に、乙の費用で、商品の修補、代替品の引渡し、又は不足分の引渡しによる履行の追完を行わなければならない。</li>
+      <li>検査期間内に本条第２項に定める書面が乙に交付されない場合、甲が検査遅延の理由について書面で合理的な理由を明示したときを除き、納品物は、本条所定の検査に合格したものとみなす。</li>
+      <li>本条所定の検査に合格したことをもって、納品物の検収完了とし、納品物の引渡しが完了したものとみなす。</li>
+    </ol>
+  </li>
+
+  <!-- 第５条 ※Credit版：月次締め・保証金 -->
+  <li>
+    <div class="article-title">（支払方法及び保証金）</div>
+    <ol class="items">
+      <li>甲は、乙に対し、個別契約に基づく本製品の代金を、乙が毎月<span class="ph">{{MONTHLY_CLOSING_DAY}}</span>日締めで発行する請求書に基づき、翌月<span class="ph">{{PAYMENT_DUE_DAY}}</span>日までに乙が指定する銀行口座へ振込みにて支払うものとする。振込手数料は甲の負担とする。</li>
+      <li>甲は、本契約に基づく取引の担保として、本契約締結時に乙に対し、金<span class="ph">{{SECURITY_DEPOSIT_AMOUNT}}</span>円（以下「保証金」という。）を乙が指定する銀行口座に振込みにより差し入れるものとする。なお、保証金を０円とした場合は、担保なしの取引（以下「無担保取引」という。）とする。</li>
+      <li>乙は、保証金を無利息で預かるものとし、甲の乙に対する一切の債務が完済されるまでこれを保持する。</li>
+      <li>甲は、乙が与信審査のために必要と判断した場合、甲に関する取引情報（取引実績、支払状況、その他与信判断に必要な情報を含む。）を信用調査機関その他の第三者に開示することに同意する。乙は当該情報を与信審査の目的以外には使用しない。</li>
+      <li>乙は、甲に対する本契約及び個別契約に基づく確定した債権（弁済期の到来の有無を問わない。）がある場合、自動債権・受動債権の別を問わず、保証金の全部または一部をもってこれと相殺することができる。甲について次条（期限の利益喪失）第３項に定める期限喪失事由が生じ乙が期限の利益を喪失させた場合も、乙は甲に対する一切の未決済債権を同様に相殺することができる。相殺した場合、乙は甲に対してその旨を速やかに通知するものとし、甲は当該通知を受領した日から<span class="ph">{{DEPOSIT_REPLENISH_DAYS}}</span>営業日以内に保証金を第２項所定の額まで復元しなければならない。甲が保証金を補充しない場合、乙は甲への本製品の供給を停止することができる。なお、無担保取引の場合、本項は適用しない。</li>
+      <li>本契約が終了し、かつ甲の乙に対する本契約及び個別契約に基づく一切の債務が完済（第５項による相殺充当を含む。）された場合、乙は速やかに保証金の残額を甲に返還するものとする。また、本契約の存続中であっても、第５項に基づく相殺の結果、甲の乙に対する一切の債務が消滅し、かつ乙が甲への本製品の供給を継続しないと判断した場合は、乙は速やかに保証金残額を甲に返還する。なお、無担保取引（保証金０円）の場合、本項は適用しない。</li>
+    </ol>
+  </li>
+
+  <!-- 第６条 -->
+  <li>
+    <div class="article-title">（所有権の移転）</div>
+    <ol class="items">
+      <li>本件商品の所有権は、売買代金の完済をもって乙から甲に移転する。</li>
+    </ol>
+  </li>
+
+  <!-- 第７条 -->
+  <li>
+    <div class="article-title">（危険負担）</div>
+    <ol class="items">
+      <li>本製品の引渡し前に生じた本製品の滅失、毀損その他一切の損害は、甲の責めに帰すべきものを除き乙の負担とし、本製品の引渡し後に生じたそれらの損害は、乙の責めに帰すべきものを除き甲の負担とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第８条 -->
+  <li>
+    <div class="article-title">（非保証）</div>
+    <ol class="items">
+      <li>乙は、甲に対し、本件製品が第三者の特許権、実用新案権、商標権、著作権、肖像権・プライバシーの権利、その他の知的財産権、及びその他権利又は利益を侵害していないことを保証するものではない。</li>
+      <li>乙は、甲に対し、本件商品を甲に対して安定的に供給することを保証するものではない。</li>
+    </ol>
+  </li>
+
+  <!-- 第９条 -->
+  <li>
+    <div class="article-title">（契約不適合責任）</div>
+    <ol class="items">
+      <li>本契約第４条（検品）の検査により、本件製品に種類、品質又は数量の相違その他個別契約の内容に適合しないこと（以下、「契約不適合」という。）が発見され、不合格となった場合、乙は、自らの裁量により、当該本件商品の修補、代替物の引渡し、又は不足分の引渡し等の自ら指定した方法による履行の追完、代金の全部又は一部の減額、損害の賠償その他の必要な措置を講じなければならない。</li>
+      <li>甲は、契約不適合につき本契約締結前に知っていたとき又は契約不適合が甲の責めに帰すべき事由によるものであるときは、履行の追完、代金の減額、又は損害の賠償の請求及び契約の解除をすることができない。</li>
+      <li>甲は、本契約第４条（検品）の検査では直ちに発見することができない契約不適合（数量の相違を除く）を発見したときは、引渡し後<span class="ph">{{WARRANTY_PERIOD}}</span>以内に売主に対してその旨の通知を発しなければ、履行の追完、代金の減額、又は損害賠償の請求及び契約の解除をすることができない。</li>
+      <li>甲は、履行の追完又は代金の減額請求をした場合においては、損害賠償の請求及び解除をすることができない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１０条 -->
+  <li>
+    <div class="article-title">（製造物責任）</div>
+    <ol class="items">
+      <li>甲又は乙は、本製品の欠陥に起因して第三者との間で紛議が生じた場合、直ちに相手方に通知し、協力して当該紛議の解決にあたるものとする。</li>
+      <li>乙は当該欠陥が乙の責めに帰すべき事由に起因にする場合に限り、甲に対して当該損害を賠償する。ただし、乙の責めに帰すべき事由がない場合は、製造物責任法により責任を負う場合を除き、乙は賠償する義務を負わない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１１条 -->
+  <li>
+    <div class="article-title">（秘密保持）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約及び個別契約の存在及び各条項並びに本契約及び個別契約に関連して知った相手方及び本商品に関する情報（以下「秘密情報」という。）を、相手方の書面による事前の承諾なく第三者に対して開示、提供又は漏洩してはならない。ただし、次のいずれかに該当することを証明できる情報については、秘密情報から除くものとする。
+        <ol class="sub-items">
+          <li>提供又は開示を受けた際、既に自己が保有していた情報</li>
+          <li>提供又は開示を受けた際、既に公知となっている情報</li>
+          <li>提供又は開示を受けた後、自己の責めによらずに公知となった情報</li>
+          <li>正当な権限を有する第三者から秘密保持義務を負わずに適法に取得した情報</li>
+          <li>秘密情報によることなく独自に開発又は取得した情報</li>
+          <li>法令の規定又は権限ある官公庁からの開示の要求に基づき開示しなければならない情報</li>
+        </ol>
+      </li>
+      <li>甲及び乙は、秘密情報を本契約又は個別契約の目的以外に使用してはならない。</li>
+      <li>甲及び乙は、秘密情報を、本契約又は個別契約の遂行のために知る必要のある自己の役員及び従業員（以下「役員等」という。）並びに弁護士等の法令上守秘義務を負う専門家に限り開示等することができる。この場合、本条に基づき秘密情報の受領者が負担する義務と同等の義務を、開示等を受けた当該役員等に退職後も含め課さなければならない。</li>
+      <li>本契約が終了した場合、甲及び乙は、相手方の指示に従って、秘密情報を返還し、又は、破棄するものとする。なお、相手方は受領者に対し、秘密情報等の返還又は破棄を証明する文書の提出を求めることができる。</li>
+    </ol>
+  </li>
+
+  <!-- 第１２条 -->
+  <li>
+    <div class="article-title">（個人情報）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約又は個別契約に関連して取得した個人情報（個人情報の保護に関する法律に定める個人情報をいう。）を法令及び適用あるガイドラインに従い、適切に管理しなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１３条 -->
+  <li>
+    <div class="article-title">（遅延損害金）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約又は個別契約に基づく債務の支払を遅滞したときは、相手方に対し、当該債務の支払期日の翌日から支払済みまで年１４．６％（年３６５日の日割計算）の割合による遅延損害金を支払わなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１４条 ※Credit版：保証金補充義務トリガーを含む -->
+  <li>
+    <div class="article-title">（本製品の供給停止等）</div>
+    <ol class="items">
+      <li>甲について次のいずれかの事由が生じたとき又は本契約が終了したときは、乙は、甲に通知することにより、甲に対する本製品の供給（新規の個別契約の締結を含む。以下本条において同じ。）を停止することができる。
+        <ol class="sub-items">
+          <li>第５条第１項に定める支払期日を経過しても代金の支払がないとき</li>
+          <li>第５条第５項に基づく保証金の補充義務を履行しないとき、又は本契約若しくは個別契約のいずれかの条項に違反したとき</li>
+          <li>第２０条（反社会的勢力の排除）の表明又は確約に違反したとき</li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+
+  <!-- 第１５条 -->
+  <li>
+    <div class="article-title">（通知）</div>
+    <ol class="items">
+      <li>本契約に基づく通知、承諾その他の連絡は、当事者が事前に相手方に対して書面または電子的手段により指定した通知先に対して、書留速達郵便、ファクシミリ、電子メール、又は当事者間で合意されたその他の手段により行うものとする。</li>
+      <li>両当事者は、自らの通知先を変更する場合、相手方に対してその旨を速やかに通知するものとし、当該通知が相手方に到達した時点以降、当該変更は有効となる。</li>
+    </ol>
+  </li>
+
+  <!-- 第１６条 -->
+  <li>
+    <div class="article-title">（解除等）</div>
+    <ol class="items">
+      <li>甲又は乙が本契約又は個別契約のいずれかの条項に違反し、相手方からその是正を要求する通知を受領した後１４日以内にその違反を是正しない場合は、相手方は、違反者にその旨を通知することにより、本契約及び個別契約を直ちに解除することができる。</li>
+      <li>甲又は乙は、相手方が以下の各号に定める事由のいずれかに該当した場合には、何らの催告なくして、直ちに本契約及び個別契約を解除することができる。
+        <ol class="sub-items">
+          <li>重大な過失又は背信行為があったとき</li>
+          <li>手形若しくは小切手の不渡りが生じたとき、電子交換所の取引停止処分を受けたとき、又は支払停止の状態に陥ったとき。</li>
+          <li>第三者より仮差押え、仮処分、強制執行などを受けたとき、又は公租公課の滞納処分を受けたとき。</li>
+          <li>破産手続、特別清算、民事再生手続又は会社更生手続開始の申立てがあったとき。</li>
+          <li>債務整理の通知がなされたとき</li>
+          <li>その他財務状態が著しく悪化し、又は悪化のおそれがあるとき。</li>
+          <li>その他前各号に準ずるような本契約又は個別契約を継続し難い重大な事由が発生した場合</li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+
+  <!-- 第１７条 ※Credit版：第３項（保証金相殺）あり -->
+  <li>
+    <div class="article-title">（期限の利益喪失）</div>
+    <ol class="items">
+      <li>甲又は乙は、本契約又は個別契約のいずれかの条項に違反した場合、相手方からの期限の利益を喪失させる旨の書面による通知により、本契約又は個別契約に基づき相手方に対して負う一切の債務について期限の利益を失い、相手方に対し、直ちに当該債務を履行しなければならない。</li>
+      <li>甲又は乙は、前条１項若しくは本契約第２０条３項の規定に基づき本契約若しくは個別契約が相手方により解除された場合、又は、自己が前条２項各号に該当した場合、本契約又は個別契約に基づき相手方に対して負う一切の債務について、相手方からの通知を要することなく当然に期限の利益を失い、相手方に対し、直ちに当該債務を履行しなければならない。</li>
+      <li>甲が第５条第１項に定める支払期日を経過しても代金の全部または一部を支払わない場合、又は同条第５項に定める保証金補充義務を履行しない場合、乙は書面または電子的手段による通知により、甲が本契約及び個別契約に基づき乙に対して負う一切の未決済債務について期限の利益を喪失させることができる。期限喪失の通知が甲に到達した時点をもって、甲は当該債務について直ちに弁済義務を負うものとし、乙は第５条第５項に基づき保証金をもって当該債務と即時に相殺することができる。</li>
+    </ol>
+  </li>
+
+  <!-- 第１８条 -->
+  <li>
+    <div class="article-title">（通知義務）</div>
+    <ol class="items">
+      <li>本契約の当事者は、自ら又は本契約に関して次の各号のいずれかに該当する事由が発生し、又は発生するおそれが生じたことを認識したときは、相手方に対して速やかにその旨を通知しなければならない。
+        <ol class="sub-items">
+          <li>会社支配権の変動</li>
+          <li>解散、合併、会社分割、株式交換、株式移転及び株式交付その他の組織再編、事業譲渡及び事業の譲受け並びに組織変更</li>
+          <li>資本金又は資本準備金の額の減少</li>
+          <li>破産、民事再生、及び会社更生その他の倒産手続の申立て又は開始</li>
+          <li>業務停止その他の行政処分</li>
+          <li>本契約に基づく取引に関連する第三者からのクレーム</li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+
+  <!-- 第１９条 -->
+  <li>
+    <div class="article-title">（損害賠償）</div>
+    <ol class="items">
+      <li>甲または乙が本契約または個別契約に違反したときは、相互に当該債務不履行により生じた通常損害（損害賠償請求に要する弁護士費用等の経費は含まない。）を相手方に賠償する義務を負う。</li>
+    </ol>
+  </li>
+
+  <!-- 第２０条 -->
+  <li>
+    <div class="article-title">（有効期間）</div>
+    <ol class="items">
+      <li>本契約の有効期間は、本契約締結の日から１年間とする。ただし、期間満了の１か月前までに甲乙いずれからも何ら書面による申出がないときは、更に１年間延長されるものとし、以後も同様とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第２１条 -->
+  <li>
+    <div class="article-title">（反社会的勢力の排除）</div>
+    <ol class="items">
+      <li>甲及び乙は、相互に、次の各号に定める事項について表明保証し、かつ、誓約する。
+        <ol class="sub-items">
+          <li>自ら（第１１条に基づき自らが秘密情報を開示した第三者がいる場合は当該第三者を含む。）が反社会的勢力（その名称にかかわらず、暴力団、暴力団員、暴力団準構成員、暴力団関係企業、総会屋、社会運動標榜ゴロ、政治活動標榜ゴロ、特殊知能暴力集団及びこれらに準じるものをいい、反社会的勢力でなくなった時から５年を経過しないものも反社会的勢力とみなす。以下同じ。）に該当せず、また将来に渡って反社会的勢力に該当しないこと。</li>
+          <li>反社会的勢力との間で、直接又は間接を問わず、かつ、名目の如何を問わず、資本上の関係（反社会的勢力が、自らの責に帰すべからざる事由により金融商品取引所において市場取引で株式を取得した場合を除く。）を有していないこと及び今後も有しないこと。</li>
+          <li>反社会的勢力に対し、直接又は間接を問わず、かつ、名目の如何を問わず、資金の提供を行っていないこと及び今後も行わないこと。</li>
+          <li>反社会的勢力を役員に選任しておらず、かつ、従業員（臨時従業員及び派遣従業員を含む。）として雇用していないこと及び今後も選任又は雇用しないこと。</li>
+          <li>反社会的勢力が、直接又は間接を問わず、自らの経営に関与していないこと及び今後も関与させないこと。</li>
+          <li>その他、反社会的勢力との間で、直接又は間接を問わず、名目の如何を問わず、かつ、対価の有無を問わず、取引その他の接触（各都道府県その他地方公共団体の制定する暴力団排除条例その他反社会的勢力規制法令において規制される態様の取引その他の接触をいう。）を行っていないこと及び今後も行わないこと。</li>
+          <li>直接又は間接を問わず、次に掲げる行為を行っていないこと及び今後も行わないこと。
+            <ol class="sub-sub-items">
+              <li>相手方又は第三者に対する脅迫的な言動又は暴力を用いる行為</li>
+              <li>偽計又は威力を用いて相手方又は第三者の業務を妨害し、又は、信用を毀損する行為</li>
+              <li>相手方又は第三者に対する違法な要求行為</li>
+              <li>その他、前アからウまでに準ずる行為</li>
+            </ol>
+          </li>
+        </ol>
+      </li>
+      <li>甲及び乙は、自らが現に前項各号に定める事項に違反し、又は、違反するおそれがあると判断した場合は、相手方に対し、直ちにその旨を通知しなければならない。</li>
+      <li>甲及び乙は、相手方が第１項各号に定める事項又は前項に定める通知義務に違反すると合理的に判断した場合は、何らの通知又は催告を要せず、かつ、何らの賠償義務を負わず、甲乙間の全部又は一部の契約を直ちに終了させることができる。</li>
+    </ol>
+  </li>
+
+  <!-- 第２２条 -->
+  <li>
+    <div class="article-title">（本契約及び個別契約上の地位譲渡等の禁止）</div>
+    <ol class="items">
+      <li>甲及び乙は、相手方の書面による事前の承諾がない限り、本契約及び個別契約上の権利及び義務並びに本契約及び個別契約上の地位を第三者へ譲渡し、又は担保に供してはならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第２３条 -->
+  <li>
+    <div class="article-title">（存続）</div>
+    <ol class="items">
+      <li>本契約が終了した場合でも、本条及び第９条（契約不適合）乃至第１３条（遅延損害金）、１９条（損害賠償）、第２２条（本契約及び個別契約上の地位譲渡等の禁止）、第２４条（準拠法および専属的合意管轄裁判所）、及び第２５条（協議）までは有効に存続する。ただし、第１１条（秘密保持）については、本契約の終了後<span class="ph">{{CONFIDENTIALITY_YEARS}}</span>年間に限り、その効力を有する。</li>
+    </ol>
+  </li>
+
+  <!-- 第２４条 -->
+  <li>
+    <div class="article-title">（準拠法および専属的合意管轄裁判所）</div>
+    <ol class="items">
+      <li>本契約及び個別契約の成立、効力、解釈及び履行については、日本法を準拠法とする。</li>
+      <li>本契約に関する紛争については、<span class="ph">{{JURISDICTION}}</span>を第一審の専属的合意管轄裁判所とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第２５条 -->
+  <li>
+    <div class="article-title">（協議）</div>
+    <ol class="items">
+      <li>本契約および個別契約に定められていない事項または解釈上疑義が生じた事項については、その都度、甲乙誠意をもって協議決定する。</li>
+    </ol>
+  </li>
+
+</ol><!-- /articles -->
+
+<!-- 特記事項 -->
+{{#if SPECIAL_TERMS}}
+<div class="no-break" style="margin-top:1.5em;">
+  <div class="special-terms-label">【特記事項】</div>
+  <div class="special-terms">{{SPECIAL_TERMS}}</div>
+</div>
+{{/if}}
+
+<div class="margin-note">（以下余白）</div>
+
+<!-- 署名欄 -->
+<div class="signature-block no-break">
+  <p style="margin-bottom:1em;">本契約締結の証として、本書２通を作成し、甲乙記名押印のうえ、各１通を保有又は、本書の電磁的記録を作成し、甲乙合意の後電子署名を施し、各自その電磁的記録を保管する。</p>
+
+  <div class="date-line">
+    <span class="ph-blank">{{CONTRACT_DATE_FORMATTED}}</span>
+  </div>
+
+  <!-- 甲 -->
+  <div class="party">
+    <div class="party-label">甲</div>
+    <div class="party-row">
+      <span class="label">所在地　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_ADDRESS}}</span></span>
+    </div>
+    <div class="party-row">
+      <span class="label">会社名　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_NAME}}</span></span>
+    </div>
+    <div class="party-row">
+      <span class="label">代表者　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_REPRESENTATIVE}}</span>　　　　　㊞</span>
+    </div>
+  </div>
+
+  <!-- 乙 -->
+  <div class="party">
+    <div class="party-label">乙</div>
+    <div class="party-row">
+      <span class="label">所在地　</span>
+      <span class="value">東京都千代田区小川町１－２　風雲堂ビル２階</span>
+    </div>
+    <div class="party-row">
+      <span class="label">会社名　</span>
+      <span class="value">株式会社アークライト</span>
+    </div>
+    <div class="party-row">
+      <span class="label">代表者　</span>
+      <span class="value">代表取締役　青柳　昌行　　　　　㊞</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>利用許諾料計算書 {{manufacturingIssueKey}}</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IPAGothic", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+      font-size: 10.5pt;
+      color: #000;
+      line-height: 1.65;
+    }
+
+    /* ヘッダー */
+    .doc-header {
+      border-bottom: 2.5px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .doc-title { font-size: 20pt; font-weight: bold; letter-spacing: 0.08em; }
+    .doc-meta { text-align: right; font-size: 8.5pt; line-height: 1.9; }
+    .doc-meta .doc-number { font-size: 10pt; font-weight: bold; }
+
+    /* 当事者ブロック */
+    .parties {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 20px;
+    }
+    .party-block { flex: 1; }
+    .party-label { font-size: 8pt; color: #555; margin-bottom: 2px; }
+    .party-name { font-size: 12pt; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; }
+    .party-sub { font-size: 8.5pt; margin-top: 3px; color: #333; }
+
+    /* セクション見出し */
+    .section-title {
+      font-size: 9pt;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      border-left: 3px solid #000;
+      padding-left: 6px;
+      margin: 14px 0 6px;
+    }
+
+    /* テーブル共通 */
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    th {
+      background: #f0f0f0;
+      border: 1px solid #999;
+      padding: 5px 8px;
+      font-weight: bold;
+      text-align: center;
+    }
+    td { border: 1px solid #ccc; padding: 5px 8px; }
+    td.right { text-align: right; }
+    td.center { text-align: center; }
+    td.label { background: #f7f7f7; font-weight: bold; width: 160px; }
+
+    /* 計算結果ハイライト */
+    .result-box {
+      border: 2px solid #000;
+      padding: 12px 16px;
+      margin: 14px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .result-item { flex: 1; text-align: center; }
+    .result-item .label-sm { font-size: 8pt; color: #444; }
+    .result-item .value-lg { font-size: 16pt; font-weight: bold; }
+    .result-item .value-md { font-size: 13pt; font-weight: bold; }
+    .result-divider { border-left: 1px solid #ccc; height: 48px; }
+
+    /* MG進捗バー */
+    .mg-bar-wrap {
+      border: 1px solid #ccc;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+    }
+    .mg-bar-title { font-size: 8pt; color: #555; margin-bottom: 4px; }
+    .mg-bar-track {
+      height: 14px;
+      background: #e8e8e8;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .mg-bar-fill {
+      height: 100%;
+      background: #444;
+    }
+    .mg-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #555;
+    }
+
+    /* 計算明細テーブル */
+    tr.subtotal td { background: #f8f8f8; }
+    tr.total-row td {
+      background: #f0f0f0;
+      font-weight: bold;
+      font-size: 11pt;
+    }
+    tr.mg-row td { background: #fafafa; font-style: italic; color: #444; }
+    tr.zero-row td { color: #888; }
+
+    /* 注記 */
+    .notes-box {
+      border: 1px solid #ddd;
+      padding: 7px 10px;
+      font-size: 8.5pt;
+      margin-top: 10px;
+      min-height: 36px;
+    }
+
+    /* 捺印欄 */
+    .stamp-area {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin: 14px 0 10px;
+    }
+    .stamp-box {
+      width: 50px; height: 50px;
+      border: 1px solid #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7.5pt;
+      color: #999;
+    }
+
+    /* フッター */
+    .doc-footer {
+      border-top: 1px solid #ccc;
+      padding-top: 6px;
+      font-size: 7.5pt;
+      color: #666;
+      text-align: center;
+      margin-top: 12px;
+    }
+
+    /* MG消化済みバッジ */
+    .badge-consumed {
+      display: inline-block;
+      background: #222;
+      color: #fff;
+      font-size: 7.5pt;
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .badge-zero {
+      display: inline-block;
+      background: #888;
+      color: #fff;
+      font-size: 7.5pt;
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <div class="doc-header">
+    <div class="doc-title">利用許諾料計算書</div>
+    <div class="doc-meta">
+      <div class="doc-number">{{manufacturingIssueKey}}</div>
+      <div>台帳ID: {{ledgerId}}</div>
+      <div>ライセンス課題: {{licenseIssueKey}}</div>
+      <div>発行日: {{documentDate}}</div>
+    </div>
+  </div>
+
+  <!-- 当事者 -->
+  <div class="parties">
+    <div class="party-block">
+      <div class="party-label">ライセンサー（甲）</div>
+      <div class="party-name">{{licensor}}</div>
+      {{#if VENDOR_REPRESENTATIVE_SAMA}}<div class="party-sub">{{VENDOR_REPRESENTATIVE_SAMA}}</div>{{/if}}
+    </div>
+    <div class="party-block">
+      <div class="party-label">ライセンシー（乙）</div>
+      <div class="party-name">{{licensee}}</div>
+      <div class="party-sub">法務部</div>
+    </div>
+    <div class="party-block">
+      <div class="party-label">原著作物</div>
+      <div class="party-name" style="font-size:10.5pt;">{{originalWork}}</div>
+    </div>
+  </div>
+
+  <!-- 製造イベント情報 -->
+  <div class="section-title">■ 製造イベント</div>
+  <table style="margin-bottom:12px;">
+    <tr>
+      <td class="label">製品名</td>
+      <td>{{productName}}（{{edition}}）</td>
+      <td class="label" style="width:120px;">製造完了日</td>
+      <td class="center" style="width:130px;"><strong>{{completionDate}}</strong></td>
+    </tr>
+    <tr>
+      <td class="label">製造数量（総数）</td>
+      <td class="right">{{quantity}} 個</td>
+      <td class="label">販促サンプル数</td>
+      <td class="right">{{sampleQuantity}} 個（計算対象外）</td>
+    </tr>
+    <tr>
+      <td class="label">課税対象数量</td>
+      <td class="right"><strong>{{billableQuantity}} 個</strong></td>
+      <td class="label">MSRP（税抜）</td>
+      <td class="right">¥{{msrpStr}}</td>
+    </tr>
+  </table>
+
+  <!-- ロイヤリティ計算明細 -->
+  <div class="section-title">■ ロイヤリティ計算明細</div>
+  <table style="margin-bottom:12px;">
+    <thead>
+      <tr>
+        <th style="width:40%;">項目</th>
+        <th style="width:30%;">計算式</th>
+        <th style="width:30%;">金額（税抜）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>当期ロイヤリティ（グロス）</td>
+        <td class="center">
+          {{#if (eq calcType "manufacturing")}}
+            {{billableQuantity}}個 × ¥{{msrpStr}} × {{royaltyRatePct}}
+          {{else if (eq calcType "sales")}}
+            売上高 ¥{{msrpStr}} × {{royaltyRatePct}}
+          {{else if (eq calcType "sublicense")}}
+            受領額 ¥{{msrpStr}} × {{royaltyRatePct}}
+          {{else}}
+            固定額
+          {{/if}}
+        </td>
+        <td class="right">¥{{grossRoyaltyStr}}</td>
+      </tr>
+
+      {{#if mgAmount}}
+      <tr class="mg-row">
+        <td>
+          MG（最低保証金）充当額
+          {{#if mgFullyConsumed}}<span class="badge-consumed">消化完了</span>{{/if}}
+        </td>
+        <td class="center">MG残高 ¥{{mgConsumedBefore}} → 今回 ▲¥{{mgConsumedThisTime}}</td>
+        <td class="right" style="color:#444;">▲¥{{mgConsumedThisTime}}</td>
+      </tr>
+      {{/if}}
+
+      <tr class="{{#if (eq actualRoyalty 0)}}zero-row{{else}}total-row{{/if}}">
+        <td colspan="2">
+          実支払ロイヤリティ
+          {{#if (eq actualRoyalty 0)}}
+            <span class="badge-zero">MG充当のため今期支払なし</span>
+          {{/if}}
+        </td>
+        <td class="right">¥{{actualRoyaltyStr}}</td>
+      </tr>
+
+      {{#if actualRoyalty}}
+      <tr>
+        <td colspan="2" class="right">消費税（{{taxRate}}%）</td>
+        <td class="right">¥{{taxAmount}}</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="2" class="right">今期お支払合計（税込）</td>
+        <td class="right">¥{{totalPaymentStr}}</td>
+      </tr>
+      {{/if}}
+    </tbody>
+  </table>
+
+  <!-- MG進捗 -->
+  {{#if mgAmount}}
+  <div class="mg-bar-wrap">
+    <div class="mg-bar-title">MG消化進捗（今回処理後）</div>
+    <div class="mg-bar-track">
+      <div class="mg-bar-fill" style="width: {{mgProgressPct}}%;"></div>
+    </div>
+    <div class="mg-bar-labels">
+      <span>消化済: ¥{{mgConsumedAfter}} / MG総額: ¥{{mgAmount}}</span>
+      <span>残高: ¥{{mgRemaining}}</span>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- 支払条件・日程 -->
+  <div class="section-title">■ 支払条件・日程</div>
+  <table style="margin-bottom:12px;">
+    <tr>
+      <td class="label">支払条件</td>
+      <td colspan="3">{{paymentConditionSummary}}</td>
+    </tr>
+    <tr>
+      <td class="label">報告期限</td>
+      <td><strong>{{reportingDeadline}}</strong></td>
+      <td class="label" style="width:120px;">支払期日</td>
+      <td class="center" style="width:140px;"><strong>{{paymentDueDate}}</strong></td>
+    </tr>
+    <tr>
+      <td class="label">通貨</td>
+      <td>{{currency}}</td>
+      <td class="label">税率</td>
+      <td class="center">{{taxRate}}%</td>
+    </tr>
+  </table>
+
+  <!-- 支払金額サマリー -->
+  {{#if actualRoyalty}}
+  <div class="result-box">
+    <div class="result-item">
+      <div class="label-sm">今期お支払金額（税込）</div>
+      <div class="value-lg">¥ {{totalPaymentStr}}</div>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-item">
+      <div class="label-sm">支払期日</div>
+      <div class="value-md">{{paymentDueDate}}</div>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-item">
+      <div class="label-sm">報告期限</div>
+      <div class="value-md">{{reportingDeadline}}</div>
+    </div>
+  </div>
+  {{else}}
+  <div class="result-box" style="background:#f8f8f8;">
+    <div class="result-item">
+      <div class="label-sm">今期実支払額</div>
+      <div class="value-lg" style="color:#666;">¥ 0</div>
+      <div class="label-sm" style="margin-top:4px;">MG充当のため今期のお支払はありません</div>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-item">
+      <div class="label-sm">MG残高</div>
+      <div class="value-md">¥ {{mgRemaining}}</div>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- 備考 -->
+  <div class="notes-box">
+    備考: {{#if notes}}{{notes}}{{/if}}
+  </div>
+
+  <!-- 捺印欄 -->
+  <div class="stamp-area">
+    <div class="stamp-box">担当者</div>
+    <div class="stamp-box">法務部長</div>
+    <div class="stamp-box">取締役</div>
+  </div>
+
+  <!-- フッター -->
+  <div class="doc-footer">
+    本書は {{generatedAt}} に LegalBridge により自動生成されました　|　株式会社アークライト 法務部
+  </div>
+
+</body>
+</html>

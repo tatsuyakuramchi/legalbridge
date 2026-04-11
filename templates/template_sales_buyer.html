@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>売買基本契約書（買手・アークライト版）- {{CONTRACT_NO}}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 25mm 20mm 25mm 25mm;
+      @bottom-center {
+        content: "- " counter(page) " -";
+        font-size: 9pt;
+        font-family: "Noto Serif CJK JP", "IPAMincho", serif;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Noto Serif CJK JP", "IPAMincho", "MS Mincho", serif;
+      font-size: 10.5pt;
+      line-height: 1.9;
+      color: #000;
+    }
+
+    h1.contract-title {
+      text-align: center;
+      font-size: 15pt;
+      font-weight: bold;
+      letter-spacing: 0.3em;
+      margin-bottom: 2em;
+      text-decoration: underline;
+    }
+
+    .preamble {
+      margin-bottom: 1.5em;
+      text-indent: 1em;
+    }
+
+    ol.articles {
+      list-style: none;
+      padding: 0;
+      counter-reset: article;
+    }
+
+    ol.articles > li {
+      counter-increment: article;
+      margin-bottom: 1.2em;
+    }
+
+    ol.articles > li > .article-title {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    ol.articles > li > .article-title::before {
+      content: counter(article) ". ";
+    }
+
+    ol.items {
+      list-style: none;
+      padding-left: 1.5em;
+      counter-reset: item;
+    }
+
+    ol.items > li {
+      counter-increment: item;
+      padding-left: 2em;
+      text-indent: -2em;
+      margin-bottom: 0.5em;
+    }
+
+    ol.items > li::before {
+      content: counter(item) "　";
+    }
+
+    ol.sub-items {
+      list-style: none;
+      padding-left: 2em;
+      counter-reset: subitem;
+      margin-top: 0.3em;
+    }
+
+    ol.sub-items > li {
+      counter-increment: subitem;
+      padding-left: 2em;
+      text-indent: -2em;
+      margin-bottom: 0.3em;
+    }
+
+    ol.sub-items > li::before {
+      content: "(" counter(subitem) ") ";
+    }
+
+    ol.sub-sub-items {
+      list-style: none;
+      padding-left: 2em;
+      counter-reset: subsubitem;
+      margin-top: 0.3em;
+    }
+
+    ol.sub-sub-items > li {
+      counter-increment: subsubitem;
+      padding-left: 2.5em;
+      text-indent: -2.5em;
+      margin-bottom: 0.3em;
+    }
+
+    ol.sub-sub-items > li::before {
+      content: counter(subsubitem, katakana) "　";
+    }
+
+    .ph {
+      border-bottom: 1px solid #000;
+      display: inline-block;
+      min-width: 5em;
+    }
+
+    .ph-blank {
+      display: inline-block;
+      border-bottom: 1px solid #000;
+      min-width: 8em;
+    }
+
+    .signature-block {
+      margin-top: 4em;
+      page-break-inside: avoid;
+    }
+
+    .signature-block .date-line {
+      text-align: right;
+      margin-bottom: 2em;
+    }
+
+    .party {
+      margin-bottom: 2em;
+    }
+
+    .party .party-label {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    .party .party-row {
+      display: flex;
+      margin-bottom: 0.3em;
+    }
+
+    .party .party-row .label {
+      min-width: 4em;
+    }
+
+    .party .party-row .value {
+      flex: 1;
+    }
+
+    .special-terms {
+      border: 1px solid #666;
+      padding: 0.8em 1em;
+      margin-top: 0.8em;
+      min-height: 3em;
+    }
+
+    .special-terms-label {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+    }
+
+    .margin-note {
+      text-align: center;
+      margin: 2em 0 3em;
+      font-size: 9pt;
+    }
+
+    .page-break { page-break-after: always; }
+    .no-break   { page-break-inside: avoid; }
+
+    .contract-meta {
+      text-align: right;
+      font-size: 9pt;
+      margin-bottom: 1em;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 契約番号（アプリ側採番） -->
+<div class="contract-meta">契約番号：{{CONTRACT_NO}}</div>
+
+<h1 class="contract-title">売買基本契約書</h1>
+
+<!-- 頭書き  甲＝アークライト（買手）　乙＝相手方（売手） -->
+<p class="preamble">
+  株式会社アークライト（以下「甲」という。）と<span class="ph-blank">{{PARTY_B_NAME}}</span>（以下「乙」という。）は、乙が取り扱う商品（以下「本製品」という。）の売買に関し、基本的事項を定めるため、以下のとおり契約（以下「本契約」という。）を締結する。
+</p>
+
+<ol class="articles">
+
+  <!-- 第１条 -->
+  <li>
+    <div class="article-title">（本契約と個別契約）</div>
+    <ol class="items">
+      <li>本契約は、本製品にかかる個々の売買契約（以下「個別契約」という。）に共通する事項を定めるものであり、甲および乙は、本契約および個別契約を遵守する。</li>
+      <li>本契約と個別契約の内容が相違する場合は、個別契約が優先して適用される。ただし、本契約の内容が個別契約よりも甲に有利な場合は、本契約の規定が優先する。</li>
+    </ol>
+  </li>
+
+  <!-- 第２条 -->
+  <li>
+    <div class="article-title">（本製品の範囲）</div>
+    <ol class="items">
+      <li>本契約に基づき売買の対象となる本製品の範囲は、<span class="ph">{{PRODUCT_SCOPE}}</span>とする。</li>
+      <li>本製品の仕様、規格その他の詳細は、個別契約において定める。乙は、個別契約に定められた仕様・規格に適合した本製品を供給する義務を負う。</li>
+    </ol>
+  </li>
+
+  <!-- 第３条 -->
+  <li>
+    <div class="article-title">（個別契約の成立）</div>
+    <ol class="items">
+      <li>個別契約は、甲が発行する注文書（発行年月日・品名・仕様・単価・数量・合計金額（税込）・納入期日・納入場所・その他必要事項を記載）を乙に送付し、乙がこれを承諾する書面を甲に発送することにより成立する。</li>
+      <li>乙は、注文書を受領した日から３営業日以内に承諾の意思表示を行わなければならない。当該期間内に拒否の通知がない場合、乙は注文書の内容を承諾したものとみなす。</li>
+      <li>前２項の規定は、甲及び乙が協議の上でこれに代わる方法を定めることを妨げない。</li>
+    </ol>
+  </li>
+
+  <!-- 第４条 -->
+  <li>
+    <div class="article-title">（供給義務・安定供給）</div>
+    <ol class="items">
+      <li>乙は、個別契約に定める品名・仕様・数量の本製品を、指定された納入期日までに甲に安定的に供給する義務を負う。</li>
+      <li>乙は、原材料の調達難、製造設備の故障その他の事由により本製品の供給が困難となるおそれが生じた場合、直ちに甲にその旨を書面または電子的手段により通知し、甲と協議のうえ代替措置を講じなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第５条 -->
+  <li>
+    <div class="article-title">（納品）</div>
+    <ol class="items">
+      <li>乙から甲への納品は、甲が指定した納品期日までに、甲が指定した納品場所（<span class="ph">{{DELIVERY_LOCATION}}</span>）に本製品が到着したときに完了する。</li>
+      <li>納品に要する費用（運送料、梱包費等を含む。）は、特段の合意がない限り乙の負担とする。</li>
+      <li>乙は、納品の際に、品名・数量・仕様を記載した納品書を添付しなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第６条 -->
+  <li>
+    <div class="article-title">（所有権の移転）</div>
+    <ol class="items">
+      <li>本製品の所有権は、甲への引渡しをもって乙から甲に移転する。</li>
+    </ol>
+  </li>
+
+  <!-- 第７条 -->
+  <li>
+    <div class="article-title">（危険負担）</div>
+    <ol class="items">
+      <li>本製品の引渡し前に生じた本製品の滅失、毀損その他一切のリスクは、甲の責めに帰すべきものを除き乙の負担とする。</li>
+      <li>本製品の引渡し後に生じた本製品の滅失、毀損その他一切のリスクは、乙の責めに帰すべきものを除き甲の負担とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第８条 -->
+  <li>
+    <div class="article-title">（検品）</div>
+    <ol class="items">
+      <li>甲は、本製品の納品後<span class="ph">{{INSPECTION_PERIOD_DAYS}}</span>営業日（以下「検査期間」という。）以内に、甲が定める方法により納品物の検査を行う。種類、品質又は数量に関して本契約及び個別契約の内容に適合しないもの（以下「不適合」という。）があった場合、甲は検査期間内に乙に対し当該不適合の内容を書面または電子的手段で通知する。</li>
+      <li>乙は、前項の通知を受領した場合、当該通知の到達後<span class="ph">{{CURE_PERIOD_DAYS}}</span>営業日以内に、甲が指定する方法（修補・代替品引渡し・不足分引渡しを含む。）により履行の追完を行わなければならない。追完が困難な場合は、乙は甲に対し代替措置につき別途協議を申し出ることができる。</li>
+      <li>検査期間内に甲から不適合の通知がない場合、甲が検査遅延の合理的な理由を書面で示したときを除き、納品物は検査に合格したものとみなす。</li>
+      <li>本条所定の検査に合格したことをもって、納品物の検収完了とし、引渡しが完了したものとみなす。</li>
+    </ol>
+  </li>
+
+  <!-- 第９条 -->
+  <li>
+    <div class="article-title">（支払方法）</div>
+    <ol class="items">
+      <li>甲は、乙に対し、個別契約に基づく本製品の代金を、<span class="ph">{{PAYMENT_CONDITION_SUMMARY}}</span>により、乙が指定する銀行口座へ振込みにて支払うものとする。振込手数料は甲の負担とする。</li>
+      <li>乙は、支払期日の到来した請求書を、甲が定める様式に従い、締日後速やかに甲に発行するものとする。</li>
+      <li>甲は、乙に対して有する反対債権がある場合、支払期日前であっても相殺をもって代金の支払に充当することができる。</li>
+    </ol>
+  </li>
+
+  <!-- 第１０条 -->
+  <li>
+    <div class="article-title">（知的財産権等の保証）</div>
+    <ol class="items">
+      <li>乙は、甲に対し、本製品（その製造・販売・使用を含む。）が第三者の特許権、実用新案権、商標権、意匠権、著作権、肖像権・プライバシーの権利その他の知的財産権及びその他の権利を侵害しないことを保証する。</li>
+      <li>本製品が第三者の権利を侵害したとして第三者から甲に対しクレーム、訴訟その他の請求がなされた場合、乙は自己の費用と責任においてこれを処理し、甲を免責するものとする。甲が当該請求に対応するために費用を支出した場合、乙はこれを甲に賠償する。</li>
+    </ol>
+  </li>
+
+  <!-- 第１１条 -->
+  <li>
+    <div class="article-title">（契約不適合責任）</div>
+    <ol class="items">
+      <li>第８条（検品）の検査により本製品に契約不適合が発見された場合、または検査では直ちに発見できない契約不適合（隠れた瑕疵を含む。）が引渡し後<span class="ph">{{WARRANTY_PERIOD}}</span>以内に発見された場合、甲は乙に対し、以下のいずれかまたはその組合せを甲の選択により請求することができる。
+        <ol class="sub-items">
+          <li>履行の追完（修補・代替品引渡し・不足分引渡しを含む。）</li>
+          <li>代金の減額</li>
+          <li>損害賠償</li>
+          <li>個別契約の解除（契約目的を達することができない場合を含む。）</li>
+        </ol>
+      </li>
+      <li>乙は、契約不適合が甲の責めに帰すべき事由によるものであることを証明した場合に限り、前項の責任を免れることができる。</li>
+      <li>第１項に基づく甲の請求権は、甲が契約不適合を知った日から１年以内に行使するものとする。ただし、引渡しから<span class="ph">{{WARRANTY_PERIOD}}</span>を超えて行使することはできない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１２条 -->
+  <li>
+    <div class="article-title">（製造物責任）</div>
+    <ol class="items">
+      <li>甲又は乙は、本製品の欠陥に起因して第三者との間で紛議が生じた場合、直ちに相手方に通知し、協力して当該紛議の解決にあたるものとする。</li>
+      <li>本製品の欠陥に起因する第三者への損害については、当該欠陥が乙の責めに帰すべき事由による場合、乙が一次的に責任を負い、甲に生じた損害（甲が第三者に支払った賠償額を含む。）を乙が賠償する。</li>
+    </ol>
+  </li>
+
+  <!-- 第１３条 -->
+  <li>
+    <div class="article-title">（秘密保持）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約及び個別契約の存在及び各条項並びに本契約及び個別契約に関連して知った相手方に関する情報（以下「秘密情報」という。）を、相手方の書面による事前の承諾なく第三者に対して開示、提供又は漏洩してはならない。ただし、次のいずれかに該当することを証明できる情報については、秘密情報から除くものとする。
+        <ol class="sub-items">
+          <li>提供又は開示を受けた際、既に自己が保有していた情報</li>
+          <li>提供又は開示を受けた際、既に公知となっている情報</li>
+          <li>提供又は開示を受けた後、自己の責めによらずに公知となった情報</li>
+          <li>正当な権限を有する第三者から秘密保持義務を負わずに適法に取得した情報</li>
+          <li>秘密情報によることなく独自に開発又は取得した情報</li>
+          <li>法令の規定又は権限ある官公庁からの開示の要求に基づき開示しなければならない情報</li>
+        </ol>
+      </li>
+      <li>甲及び乙は、秘密情報を本契約又は個別契約の目的以外に使用してはならない。</li>
+      <li>甲及び乙は、秘密情報を、本契約又は個別契約の遂行のために知る必要のある自己の役員及び従業員並びに弁護士等の法令上守秘義務を負う専門家に限り開示することができる。この場合、本条と同等の義務を当該役員等に退職後も含め課さなければならない。</li>
+      <li>本契約が終了した場合、甲及び乙は、相手方の指示に従って秘密情報を返還し、又は破棄するものとする。</li>
+    </ol>
+  </li>
+
+  <!-- 第１４条 -->
+  <li>
+    <div class="article-title">（個人情報）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約又は個別契約に関連して取得した個人情報（個人情報の保護に関する法律に定める個人情報をいう。）を法令及び適用あるガイドラインに従い、適切に管理しなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１５条 -->
+  <li>
+    <div class="article-title">（遅延損害金）</div>
+    <ol class="items">
+      <li>甲及び乙は、本契約又は個別契約に基づく債務の支払を遅滞したときは、相手方に対し、当該債務の支払期日の翌日から支払済みまで年１４．６％（年３６５日の日割計算）の割合による遅延損害金を支払わなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１６条 -->
+  <li>
+    <div class="article-title">（通知）</div>
+    <ol class="items">
+      <li>本契約に基づく通知、承諾その他の連絡は、当事者が事前に相手方に対して書面または電子的手段により指定した通知先に対して、書留速達郵便、ファクシミリ、電子メール、又は当事者間で合意されたその他の手段により行うものとする。</li>
+      <li>両当事者は、自らの通知先を変更する場合、相手方に対してその旨を速やかに通知するものとし、当該通知が相手方に到達した時点以降、当該変更は有効となる。</li>
+    </ol>
+  </li>
+
+  <!-- 第１７条 -->
+  <li>
+    <div class="article-title">（解除等）</div>
+    <ol class="items">
+      <li>甲又は乙が本契約又は個別契約のいずれかの条項に違反し、相手方からその是正を要求する通知を受領した後<span class="ph">{{CURE_PERIOD_DAYS}}</span>営業日以内にその違反を是正しない場合は、相手方は、本契約及び個別契約を直ちに解除することができる。</li>
+      <li>甲又は乙は、相手方が以下の各号に定める事由のいずれかに該当した場合には、何らの催告なくして、直ちに本契約及び個別契約を解除することができる。
+        <ol class="sub-items">
+          <li>重大な過失又は背信行為があったとき</li>
+          <li>手形若しくは小切手の不渡りが生じたとき、電子交換所の取引停止処分を受けたとき、又は支払停止の状態に陥ったとき。</li>
+          <li>第三者より仮差押え、仮処分、強制執行などを受けたとき、又は公租公課の滞納処分を受けたとき。</li>
+          <li>破産手続、特別清算、民事再生手続又は会社更生手続開始の申立てがあったとき。</li>
+          <li>債務整理の通知がなされたとき</li>
+          <li>その他財務状態が著しく悪化し、又は悪化のおそれがあるとき。</li>
+          <li>その他前各号に準ずるような本契約又は個別契約を継続し難い重大な事由が発生した場合</li>
+        </ol>
+      </li>
+      <li>甲は、前２項に定めるほか、甲の都合による事業上の理由により、乙に対して書面または電子的手段により通知することで、本契約又は個別契約を解除することができる。この場合、甲は乙に対し、既に発生した個別契約上の義務（出荷済み製品等）の精算を行うものとする。</li>
+    </ol>
+  </li>
+
+  <!-- 第１８条 -->
+  <li>
+    <div class="article-title">（期限の利益喪失）</div>
+    <ol class="items">
+      <li>甲又は乙は、本契約又は個別契約のいずれかの条項に違反した場合、相手方からの書面による通知により、本契約又は個別契約に基づき相手方に対して負う一切の債務について期限の利益を失い、相手方に対し、直ちに当該債務を履行しなければならない。</li>
+      <li>甲又は乙は、前条第２項各号に該当した場合、相手方からの通知を要することなく当然に期限の利益を失い、相手方に対し、直ちに当該債務を履行しなければならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第１９条 -->
+  <li>
+    <div class="article-title">（通知義務）</div>
+    <ol class="items">
+      <li>本契約の当事者は、自ら又は本契約に関して次の各号のいずれかに該当する事由が発生し、又は発生するおそれが生じたことを認識したときは、相手方に対して速やかにその旨を通知しなければならない。
+        <ol class="sub-items">
+          <li>会社支配権の変動</li>
+          <li>解散、合併、会社分割、株式交換、株式移転及び株式交付その他の組織再編、事業譲渡及び事業の譲受け並びに組織変更</li>
+          <li>資本金又は資本準備金の額の減少</li>
+          <li>破産、民事再生、及び会社更生その他の倒産手続の申立て又は開始</li>
+          <li>業務停止その他の行政処分</li>
+          <li>本契約に基づく取引に関連する第三者からのクレーム</li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+
+  <!-- 第２０条 -->
+  <li>
+    <div class="article-title">（損害賠償）</div>
+    <ol class="items">
+      <li>甲または乙が本契約または個別契約に違反したときは、相互に当該債務不履行により生じた損害（通常損害のほか、違反当時に予見可能であった特別損害を含む。）を相手方に賠償する義務を負う。</li>
+      <li>乙が本製品の供給義務（第４条）または知的財産権等の保証義務（第１０条）に違反したことにより甲に損害が生じた場合、乙は当該損害を甲に賠償する。この場合の損害額には、甲が代替品の調達のために要した費用、逸失利益、弁護士費用等を含む。</li>
+    </ol>
+  </li>
+
+  <!-- 第２１条 -->
+  <li>
+    <div class="article-title">（有効期間）</div>
+    <ol class="items">
+      <li>本契約の有効期間は、本契約締結の日から１年間とする。ただし、期間満了の１か月前までに甲乙いずれからも何ら書面による申出がないときは、更に１年間延長されるものとし、以後も同様とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第２２条 -->
+  <li>
+    <div class="article-title">（反社会的勢力の排除）</div>
+    <ol class="items">
+      <li>甲及び乙は、相互に、次の各号に定める事項について表明保証し、かつ、誓約する。
+        <ol class="sub-items">
+          <li>自らが反社会的勢力（その名称にかかわらず、暴力団、暴力団員、暴力団準構成員、暴力団関係企業、総会屋、社会運動標榜ゴロ、政治活動標榜ゴロ、特殊知能暴力集団及びこれらに準じるものをいい、反社会的勢力でなくなった時から５年を経過しないものも反社会的勢力とみなす。以下同じ。）に該当せず、また将来に渡って反社会的勢力に該当しないこと。</li>
+          <li>反社会的勢力との間で、直接又は間接を問わず、資本上の関係を有していないこと及び今後も有しないこと。</li>
+          <li>反社会的勢力に対し、直接又は間接を問わず、資金の提供を行っていないこと及び今後も行わないこと。</li>
+          <li>反社会的勢力を役員に選任しておらず、かつ、従業員として雇用していないこと及び今後も選任又は雇用しないこと。</li>
+          <li>反社会的勢力が、直接又は間接を問わず、自らの経営に関与していないこと及び今後も関与させないこと。</li>
+          <li>直接又は間接を問わず、次に掲げる行為を行っていないこと及び今後も行わないこと。
+            <ol class="sub-sub-items">
+              <li>相手方又は第三者に対する脅迫的な言動又は暴力を用いる行為</li>
+              <li>偽計又は威力を用いて相手方又は第三者の業務を妨害し、又は、信用を毀損する行為</li>
+              <li>相手方又は第三者に対する違法な要求行為</li>
+              <li>その他、前アからウまでに準ずる行為</li>
+            </ol>
+          </li>
+        </ol>
+      </li>
+      <li>甲及び乙は、自らが前項各号に定める事項に違反し、又は、違反するおそれがあると判断した場合は、相手方に対し、直ちにその旨を通知しなければならない。</li>
+      <li>甲及び乙は、相手方が第１項各号の規定又は前項の通知義務に違反すると合理的に判断した場合は、何らの通知又は催告を要せず、かつ、何らの賠償義務を負わず、甲乙間の全部又は一部の契約を直ちに終了させることができる。</li>
+    </ol>
+  </li>
+
+  <!-- 第２３条 -->
+  <li>
+    <div class="article-title">（本契約及び個別契約上の地位譲渡等の禁止）</div>
+    <ol class="items">
+      <li>甲及び乙は、相手方の書面による事前の承諾がない限り、本契約及び個別契約上の権利及び義務並びに地位を第三者へ譲渡し、又は担保に供してはならない。</li>
+    </ol>
+  </li>
+
+  <!-- 第２４条 -->
+  <li>
+    <div class="article-title">（存続）</div>
+    <ol class="items">
+      <li>本契約が終了した場合でも、本条及び第１１条（契約不適合責任）、第１２条（製造物責任）、第１５条（遅延損害金）、第２０条（損害賠償）、第２３条（地位譲渡等の禁止）、第２５条（準拠法および専属的合意管轄裁判所）並びに第２６条（協議）は有効に存続する。ただし、第１３条（秘密保持）については、本契約の終了後<span class="ph">{{CONFIDENTIALITY_YEARS}}</span>年間に限り、その効力を有する。</li>
+    </ol>
+  </li>
+
+  <!-- 第２５条 -->
+  <li>
+    <div class="article-title">（準拠法および専属的合意管轄裁判所）</div>
+    <ol class="items">
+      <li>本契約及び個別契約の成立、効力、解釈及び履行については、日本法を準拠法とする。</li>
+      <li>本契約に関する紛争については、<span class="ph">{{JURISDICTION}}</span>を第一審の専属的合意管轄裁判所とする。</li>
+    </ol>
+  </li>
+
+  <!-- 第２６条 -->
+  <li>
+    <div class="article-title">（協議）</div>
+    <ol class="items">
+      <li>本契約および個別契約に定められていない事項または解釈上疑義が生じた事項については、その都度、甲乙誠意をもって協議決定する。</li>
+    </ol>
+  </li>
+
+</ol><!-- /articles -->
+
+<!-- 特記事項 -->
+{{#if SPECIAL_TERMS}}
+<div class="no-break" style="margin-top:1.5em;">
+  <div class="special-terms-label">【特記事項】</div>
+  <div class="special-terms">{{SPECIAL_TERMS}}</div>
+</div>
+{{/if}}
+
+<div class="margin-note">（以下余白）</div>
+
+<!-- 署名欄 -->
+<div class="signature-block no-break">
+  <p style="margin-bottom:1em;">本契約締結の証として、本書２通を作成し、甲乙記名押印のうえ、各１通を保有又は、本書の電磁的記録を作成し、甲乙合意の後電子署名を施し、各自その電磁的記録を保管する。</p>
+
+  <div class="date-line">
+    <span class="ph-blank">{{CONTRACT_DATE_FORMATTED}}</span>
+  </div>
+
+  <!-- 甲（買手・アークライト） -->
+  <div class="party">
+    <div class="party-label">甲</div>
+    <div class="party-row">
+      <span class="label">所在地　</span>
+      <span class="value">東京都千代田区小川町１－２　風雲堂ビル２階</span>
+    </div>
+    <div class="party-row">
+      <span class="label">会社名　</span>
+      <span class="value">株式会社アークライト</span>
+    </div>
+    <div class="party-row">
+      <span class="label">代表者　</span>
+      <span class="value">代表取締役　青柳　昌行　　　　　㊞</span>
+    </div>
+  </div>
+
+  <!-- 乙（売手・相手方） -->
+  <div class="party">
+    <div class="party-label">乙</div>
+    <div class="party-row">
+      <span class="label">所在地　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_ADDRESS}}</span></span>
+    </div>
+    <div class="party-row">
+      <span class="label">会社名　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_NAME}}</span></span>
+    </div>
+    <div class="party-row">
+      <span class="label">代表者　</span>
+      <span class="value"><span class="ph-blank">{{PARTY_B_REPRESENTATIVE}}</span>　　　　　㊞</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
