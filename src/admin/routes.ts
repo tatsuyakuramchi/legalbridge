@@ -40,10 +40,28 @@ export function createAdminRouter(): Router {
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
   router.get("/", async (_req: Request, res: Response) => {
-    const snapshot = await getAdminDashboardSnapshot(6);
-    const workflowAttentionSummary = await buildWorkflowAttentionSummary();
-    const workflowPriorityQueue = await buildWorkflowPriorityQueue();
-    res.type("html").send(buildAdminHomeHtml(snapshot, getLocalRuntimeStatus(), workflowAttentionSummary, workflowPriorityQueue));
+    try {
+      const snapshot = await getAdminDashboardSnapshot(6);
+      const workflowAttentionSummary = await buildWorkflowAttentionSummary();
+      const workflowPriorityQueue = await buildWorkflowPriorityQueue();
+      res.type("html").send(buildAdminHomeHtml(snapshot, getLocalRuntimeStatus(), workflowAttentionSummary, workflowPriorityQueue));
+    } catch (error) {
+      const emptySnapshot = {
+        recentWorkflows: [],
+        statusGroups: [],
+        statusSummary: [],
+        recentStatusItems: [],
+        recentGeneratedDocs: [],
+        recentGeneratedDocuments: [],
+        attentionItems: [],
+        attentionWorkflows: [],
+        syncFailures: [],
+        workflowRunHistory: [],
+        workflowExecutionSummary: null,
+        recentActivity: [],
+      };
+      res.type("html").send(buildAdminHomeHtml(emptySnapshot as any, getLocalRuntimeStatus(), [], []));
+    }
   });
 
   router.get("/masters", (_req: Request, res: Response) => {
@@ -51,32 +69,48 @@ export function createAdminRouter(): Router {
   });
 
   router.get("/orders", async (_req: Request, res: Response) => {
-    const snapshot = await getAdminDashboardSnapshot(10);
-    res.type("html").send(buildOrdersAdminHubHtml(snapshot));
+    try {
+      const snapshot = await getAdminDashboardSnapshot(10);
+      res.type("html").send(buildOrdersAdminHubHtml(snapshot));
+    } catch {
+      res.type("html").send(buildOrdersAdminHubHtml({ recentWorkflows: [], statusSummary: [], recentStatusItems: [], recentGeneratedDocuments: [], attentionItems: [], syncFailures: [] } as any));
+    }
   });
 
   router.get("/contracts", async (_req: Request, res: Response) => {
-    const [snapshot, workflowPriorityQueue] = await Promise.all([
-      getAdminDashboardSnapshot(10),
-      buildWorkflowPriorityQueue(10),
-    ]);
-    res.type("html").send(buildContractsAdminHubHtml(snapshot, workflowPriorityQueue));
+    try {
+      const [snapshot, workflowPriorityQueue] = await Promise.all([
+        getAdminDashboardSnapshot(10),
+        buildWorkflowPriorityQueue(10),
+      ]);
+      res.type("html").send(buildContractsAdminHubHtml(snapshot, workflowPriorityQueue));
+    } catch {
+      res.type("html").send(buildContractsAdminHubHtml({ recentWorkflows: [], statusSummary: [], recentStatusItems: [], recentGeneratedDocuments: [], attentionItems: [], syncFailures: [] } as any, []));
+    }
   });
 
   router.get("/delivery", async (_req: Request, res: Response) => {
-    const [snapshot, workflowPriorityQueue] = await Promise.all([
-      getAdminDashboardSnapshot(10),
-      buildWorkflowPriorityQueue(10),
-    ]);
-    res.type("html").send(buildDeliveryAdminHubHtml(snapshot, workflowPriorityQueue));
+    try {
+      const [snapshot, workflowPriorityQueue] = await Promise.all([
+        getAdminDashboardSnapshot(10),
+        buildWorkflowPriorityQueue(10),
+      ]);
+      res.type("html").send(buildDeliveryAdminHubHtml(snapshot, workflowPriorityQueue));
+    } catch {
+      res.type("html").send(buildDeliveryAdminHubHtml({ recentWorkflows: [], statusSummary: [], recentStatusItems: [], recentGeneratedDocuments: [], attentionItems: [], syncFailures: [] } as any, []));
+    }
   });
 
   router.get("/royalty", async (_req: Request, res: Response) => {
-    const [snapshot, workflowPriorityQueue] = await Promise.all([
-      getAdminDashboardSnapshot(10),
-      buildWorkflowPriorityQueue(10),
-    ]);
-    res.type("html").send(buildRoyaltyAdminHubHtml(snapshot, workflowPriorityQueue));
+    try {
+      const [snapshot, workflowPriorityQueue] = await Promise.all([
+        getAdminDashboardSnapshot(10),
+        buildWorkflowPriorityQueue(10),
+      ]);
+      res.type("html").send(buildRoyaltyAdminHubHtml(snapshot, workflowPriorityQueue));
+    } catch {
+      res.type("html").send(buildRoyaltyAdminHubHtml({ recentWorkflows: [], statusSummary: [], recentStatusItems: [], recentGeneratedDocuments: [], attentionItems: [], syncFailures: [] } as any, []));
+    }
   });
 
   router.get("/settings", (_req: Request, res: Response) => {
@@ -4112,460 +4146,627 @@ function buildMasterAdminHtml(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>マスタ管理</title>
-  <style>${sharedAdminCss()}</style>
+  <title>マスタ管理 - LegalBridge</title>
+  <style>${sharedAdminCss()}
+    .master-tabs { display:flex; gap:0; border-bottom:2px solid var(--panel-border); margin-bottom:20px; }
+    .master-tab {
+      padding:10px 20px; cursor:pointer; font-size:14px; font-weight:600;
+      color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px;
+      background:none; border-top:none; border-left:none; border-right:none;
+      border-radius:0; box-shadow:none; transition:all 0.15s;
+    }
+    .master-tab:hover { color:var(--accent); background:var(--accent-soft); transform:none; }
+    .master-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .master-pane { display:none; }
+    .master-pane.active { display:block; }
+    .csv-import-area {
+      border: 2px dashed var(--panel-border); border-radius: var(--radius-md);
+      padding: 20px; text-align: center; transition: all 0.15s; cursor: pointer;
+    }
+    .csv-import-area:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .csv-import-area.dragging { border-color: var(--accent); background: var(--accent-soft); }
+    .import-progress { display:none; }
+    .import-progress.show { display:block; }
+    .result-row { display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid #f0f4f8; }
+    .result-row:last-child { border-bottom:none; }
+    .result-ok { color: var(--success); font-weight:600; }
+    .result-err { color: var(--danger); font-weight:600; }
+    .search-bar { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+    .search-bar input { flex:1; }
+  </style>
 </head>
 <body>
+  ${buildAdminNav("masters")}
   <div class="wrap">
-    ${buildAdminNav("masters")}
-    ${buildCategorySwitchHtml("Settings", "マスタ・設定の関連画面", "前提データや運用設定を整えるカテゴリです。マスタを更新したあと、そのまま取込設定や承認設定へ移れます。", [
-      { href: "/admin/settings", label: "マスタ・設定トップ", description: "Vendor / Staff、マッピング、ワークフロー設定の入口", active: false },
-      { href: "/admin/masters", label: "マスタ管理", description: "Vendor / Staff の登録と CSV 一括登録", active: true },
-      { href: "/admin/settings/mapping", label: "マッピング設定", description: "CSV / Excel 取込の列対応と初期値", active: false },
-      { href: "/admin/settings/workflow", label: "ワークフロー設定", description: "承認者、押印担当、部署別ルール", active: false },
+    ${buildCategorySwitchHtml("Settings", "マスタ・設定", "", [
+      { href: "/admin/settings", label: "マスタ・設定トップ", description: "設定の入口", active: false },
+      { href: "/admin/masters", label: "マスタ管理", description: "Vendor / Staff の登録", active: true },
+      { href: "/admin/settings/mapping", label: "マッピング設定", description: "CSV / Excel 取込列の設定", active: false },
+      { href: "/admin/settings/workflow", label: "ワークフロー設定", description: "承認者・押印担当の設定", active: false },
     ])}
-    <h1>マスタ管理</h1>
-    <p class="sub">企画発注書の相手方情報と担当者情報をDBに登録します。CSV/Backlogから参照されるのはここです。</p>
-    <section class="panel" style="margin-bottom:20px;">
-      <div class="section-heading">
-        <div>
-          <h2>登録済みデータ検索</h2>
-          <p class="section-copy">Vendor / Staff の登録状況をその場で検索し、一覧からフォームへ読み込めます。別 Slack ID の登録有無や部署設定の確認にも使えます。</p>
-        </div>
-      </div>
-      <div class="grid two-col">
-        <section>
-          <div class="row"><label for="masterSearchQuery">検索キーワード</label><input id="masterSearchQuery" type="text" placeholder="vendorCode / vendorName / Slack ID / 氏名 / 部署" /></div>
-          <div class="actions">
-            <button id="runMasterSearch" type="button">検索する</button>
-            <button id="resetMasterSearch" type="button" class="ghost">全件に戻す</button>
-          </div>
-          <div id="masterSearchStatus" class="status"></div>
-        </section>
-        <section class="summary-box">
-          Slack 側の今回の不達調査観点:
-          - Staff 未登録だと部署ルールの解決や管理確認がしづらくなります
-          - これまでは /法務依頼 のモーダル表示失敗時にユーザー向けメッセージが出ませんでした
-          - 一覧から Slack ID を探して、未登録なら右上の Staff フォームへ読み込まずそのまま新規登録できます
-        </section>
-      </div>
-      <div class="grid two-col" style="margin-top:18px;">
-        <section>
-          <div class="section-heading">
-            <div>
-              <h3>Vendor 一覧</h3>
-              <p class="section-copy">行をクリックすると Vendor フォームへ読み込みます。</p>
-            </div>
-            <div class="tag">最大 50 件</div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Vendor Code</th>
-                  <th>Name</th>
-                  <th>種別</th>
-                  <th>更新</th>
-                </tr>
-              </thead>
-              <tbody id="vendorSearchResults">
-                <tr><td colspan="4" class="note">読み込み中...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section>
-          <div class="section-heading">
-            <div>
-              <h3>Staff 一覧</h3>
-              <p class="section-copy">行をクリックすると Staff フォームへ読み込みます。</p>
-            </div>
-            <div class="tag">最大 50 件</div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Slack ID</th>
-                  <th>Name</th>
-                  <th>部署</th>
-                  <th>更新</th>
-                </tr>
-              </thead>
-              <tbody id="staffSearchResults">
-                <tr><td colspan="4" class="note">読み込み中...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </section>
-    <div class="grid two-col">
-      <section class="panel">
-        <h2>Vendor</h2>
-        <div class="row"><label for="vendorCode">Vendor Code</label><input id="vendorCode" type="text" placeholder="artist-fujiwara" /></div>
-        <div class="row"><label for="vendorName">Vendor Name</label><input id="vendorName" type="text" placeholder="藤原ひさし" /></div>
-        <div class="row"><label for="tradeName">Trade Name / 屋号</label><input id="tradeName" type="text" placeholder="藤原デザイン工房" /></div>
-        <div class="row"><label for="penName">Pen Name / ペンネーム</label><input id="penName" type="text" placeholder="藤原ひさし" /></div>
-        <div class="row"><label for="vendorSuffix">Suffix</label><input id="vendorSuffix" type="text" value="御中" /></div>
-        <div class="row"><label for="entityType">Entity Type</label><select id="entityType"><option value="corporation">corporation</option><option value="individual">individual</option></select></div>
-        <div class="inline"><input id="withholdingEnabled" type="checkbox" /><label for="withholdingEnabled" style="margin:0;font-weight:400;">源泉徴収を適用する</label></div>
-        <div class="row"><label for="aliases">Aliases</label><textarea id="aliases" placeholder="藤原ひさし&#10;藤原ひさしフジワラ"></textarea></div>
-        <div class="row"><label for="address">Address</label><textarea id="address"></textarea></div>
-        <div class="row"><label for="vendorPhone">Phone</label><input id="vendorPhone" type="text" /></div>
-        <div class="row"><label for="email">Email</label><input id="email" type="text" /></div>
-        <div class="row"><label for="contactDepartment">Contact Department</label><input id="contactDepartment" type="text" /></div>
-        <div class="row"><label for="contactName">Contact Name</label><input id="contactName" type="text" /></div>
-        <div class="row"><label for="vendorRepresentative">Vendor Representative / 法人代表</label><input id="vendorRepresentative" type="text" /></div>
-        <div class="row"><label for="masterContractRef">Master Contract Ref</label><input id="masterContractRef" type="text" /></div>
-        <div class="row"><label for="bankInfo">Bank Info</label><textarea id="bankInfo"></textarea></div>
-        <div class="row"><label for="bankName">Bank Name</label><input id="bankName" type="text" /></div>
-        <div class="row"><label for="branchName">Branch Name</label><input id="branchName" type="text" /></div>
-        <div class="row"><label for="accountType">Account Type</label><input id="accountType" type="text" /></div>
-        <div class="row"><label for="accountNumber">Account Number</label><input id="accountNumber" type="text" /></div>
-        <div class="row"><label for="accountHolderKana">Account Holder Kana</label><input id="accountHolderKana" type="text" /></div>
-        <div class="inline"><input id="isInvoiceIssuer" type="checkbox" /><label for="isInvoiceIssuer" style="margin:0;font-weight:400;">適格請求書発行事業者</label></div>
-        <div class="row"><label for="invoiceRegistrationNumber">Invoice Registration Number</label><input id="invoiceRegistrationNumber" type="text" /></div>
-        <button id="saveVendor" type="button">Vendor保存</button>
-        <div id="vendorStatus" class="status"></div>
-        <hr />
-        <h3>Vendor CSV一括登録</h3>
-        <div class="row"><label for="vendorCsvFile">CSVファイル</label><input id="vendorCsvFile" type="file" accept=".csv,text/csv" /></div>
-        <div class="row"><label for="vendorCsvText">またはCSV貼り付け</label><textarea id="vendorCsvText" placeholder="vendorCode,vendorName,tradeName,penName,vendorSuffix,entityType,withholdingEnabled,aliases,address,phone,email,contactDepartment,contactName,vendorRepresentative,masterContractRef,bankInfo,bankName,branchName,accountType,accountNumber,accountHolderKana,isInvoiceIssuer,invoiceRegistrationNumber"></textarea></div>
-        <div class="helper">aliases 列は | 区切りで複数指定できます。entityType は corporation / individual、withholdingEnabled / isInvoiceIssuer は true / false です。</div>
-        <div class="actions">
-          <button id="downloadVendorSample" type="button" class="ghost">VendorサンプルCSV</button>
-          <button id="importVendorCsv" type="button" class="ghost">Vendor CSV取込</button>
-        </div>
-        <div id="vendorCsvStatus" class="status"></div>
-      </section>
 
-      <section class="panel">
-        <h2>Staff</h2>
-        <div class="row"><label for="slackUserId">Slack User ID</label><input id="slackUserId" type="text" placeholder="U0123456789" /></div>
-        <div class="row"><label for="staffName">Staff Name</label><input id="staffName" type="text" /></div>
-        <div class="row"><label for="department">Department</label><input id="department" type="text" /></div>
-        <div class="row"><label for="departmentCode">Department Code</label><input id="departmentCode" type="text" placeholder="LGL" /></div>
-        <div class="row"><label for="phone">Phone</label><input id="phone" type="text" /></div>
-        <div class="row"><label for="staffEmail">Email</label><input id="staffEmail" type="text" /></div>
-        <div class="row"><label for="partyAName">Company Name</label><input id="partyAName" type="text" value="株式会社アークライト" /></div>
-        <div class="row"><label for="partyAAddress">Company Address</label><textarea id="partyAAddress">〒101-0052 東京都千代田区神田小川町1-2 風雲堂ビル2階</textarea></div>
-        <div class="row"><label for="partyARep">Company Representative</label><input id="partyARep" type="text" value="代表取締役 青柳昌行" /></div>
-        <button id="saveStaff" type="button">Staff保存</button>
-        <div id="staffStatus" class="status"></div>
-        <hr />
-        <h3>Staff CSV一括登録</h3>
-        <div class="row"><label for="staffCsvFile">CSVファイル</label><input id="staffCsvFile" type="file" accept=".csv,text/csv" /></div>
-        <div class="row"><label for="staffCsvText">またはCSV貼り付け</label><textarea id="staffCsvText" placeholder="slackUserId,staffName,department,departmentCode,phone,email,partyAName,partyAAddress,partyARep"></textarea></div>
-        <div class="actions">
-          <button id="downloadStaffSample" type="button" class="ghost">StaffサンプルCSV</button>
-          <button id="importStaffCsv" type="button" class="ghost">Staff CSV取込</button>
+    <div style="margin-bottom:20px;">
+      <h1 style="margin-bottom:4px;">📁 マスタ管理</h1>
+      <p class="sub">Vendor（取引先）とStaff（社内担当者）の情報を管理します。CSV一括登録にも対応しています。</p>
+    </div>
+
+    <!-- タブ切替 -->
+    <div class="master-tabs">
+      <button class="master-tab active" onclick="switchTab('vendor', this)">🏢 Vendor</button>
+      <button class="master-tab" onclick="switchTab('staff', this)">👤 Staff</button>
+      <button class="master-tab" onclick="switchTab('search', this)">🔍 検索</button>
+    </div>
+
+    <!-- ===== Vendor タブ ===== -->
+    <div id="pane-vendor" class="master-pane active">
+      <div class="grid two-col" style="margin-bottom:20px;">
+        <!-- 単体登録フォーム -->
+        <div class="panel">
+          <div class="section-heading">
+            <h2 style="margin-bottom:0;">Vendor 登録 / 編集</h2>
+            <button type="button" class="ghost" onclick="clearVendorForm()" style="font-size:12px;padding:6px 12px;">🗑️ クリア</button>
+          </div>
+
+          <details open>
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--panel-border);">基本情報</summary>
+            <div style="padding-top:12px;">
+              <div class="row"><label for="vendorCode">Vendor Code <span style="color:var(--danger)">*</span></label><input id="vendorCode" type="text" placeholder="artist-fujiwara" /></div>
+              <div class="row"><label for="vendorName">Vendor Name <span style="color:var(--danger)">*</span></label><input id="vendorName" type="text" placeholder="藤原ひさし" /></div>
+              <div class="row"><label for="tradeName">屋号 / Trade Name</label><input id="tradeName" type="text" placeholder="藤原デザイン工房" /></div>
+              <div class="row"><label for="penName">ペンネーム / Pen Name</label><input id="penName" type="text" /></div>
+              <div class="row"><label for="vendorSuffix">敬称 Suffix</label><input id="vendorSuffix" type="text" value="御中" /></div>
+              <div class="row">
+                <label for="entityType">Entity Type</label>
+                <select id="entityType">
+                  <option value="corporation">corporation（法人）</option>
+                  <option value="individual">individual（個人）</option>
+                </select>
+              </div>
+              <div style="display:flex;gap:16px;margin-bottom:14px;">
+                <label class="inline-check"><input id="withholdingEnabled" type="checkbox" /> 源泉徴収を適用</label>
+                <label class="inline-check"><input id="isInvoiceIssuer" type="checkbox" /> 適格請求書発行事業者</label>
+              </div>
+              <div class="row"><label for="aliases">別名 / Aliases（改行区切り）</label><textarea id="aliases" rows="3" placeholder="藤原ひさし&#10;フジワラヒサシ"></textarea></div>
+            </div>
+          </details>
+
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--panel-border);">連絡先情報</summary>
+            <div style="padding-top:12px;">
+              <div class="row"><label for="address">Address</label><textarea id="address" rows="2"></textarea></div>
+              <div class="row"><label for="vendorPhone">Phone</label><input id="vendorPhone" type="text" /></div>
+              <div class="row"><label for="email">Email</label><input id="email" type="text" /></div>
+              <div class="row"><label for="contactDepartment">Contact Department</label><input id="contactDepartment" type="text" /></div>
+              <div class="row"><label for="contactName">Contact Name</label><input id="contactName" type="text" /></div>
+              <div class="row"><label for="vendorRepresentative">法人代表 / Representative</label><input id="vendorRepresentative" type="text" /></div>
+            </div>
+          </details>
+
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--panel-border);">銀行口座情報</summary>
+            <div style="padding-top:12px;">
+              <div class="row"><label for="bankInfo">Bank Info（自由形式）</label><textarea id="bankInfo" rows="2"></textarea></div>
+              <div class="grid two-col" style="gap:10px;">
+                <div class="row"><label for="bankName">銀行名</label><input id="bankName" type="text" /></div>
+                <div class="row"><label for="branchName">支店名</label><input id="branchName" type="text" /></div>
+                <div class="row"><label for="accountType">種別</label><input id="accountType" type="text" placeholder="普通" /></div>
+                <div class="row"><label for="accountNumber">口座番号</label><input id="accountNumber" type="text" /></div>
+              </div>
+              <div class="row"><label for="accountHolderKana">口座名義（カナ）</label><input id="accountHolderKana" type="text" /></div>
+              <div class="row"><label for="invoiceRegistrationNumber">適格請求書登録番号</label><input id="invoiceRegistrationNumber" type="text" /></div>
+            </div>
+          </details>
+
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--panel-border);">契約情報</summary>
+            <div style="padding-top:12px;">
+              <div class="row"><label for="masterContractRef">基本契約参照</label><input id="masterContractRef" type="text" /></div>
+            </div>
+          </details>
+
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button id="saveVendor" type="button" style="flex:1;justify-content:center;">💾 Vendor保存</button>
+          </div>
+          <div id="vendorStatus" class="status"></div>
         </div>
-        <div id="staffCsvStatus" class="status"></div>
-      </section>
+
+        <!-- CSV一括登録 -->
+        <div class="panel">
+          <h2>Vendor CSV一括登録</h2>
+          <div class="summary-box" style="margin-bottom:16px;font-size:12px;">
+            <strong>必須列:</strong> vendorCode, vendorName<br>
+            <strong>任意列:</strong> tradeName, penName, vendorSuffix, entityType(corporation/individual), withholdingEnabled(true/false), aliases(|区切り), address, phone, email, contactDepartment, contactName, vendorRepresentative, masterContractRef, bankInfo, bankName, branchName, accountType, accountNumber, accountHolderKana, isInvoiceIssuer(true/false), invoiceRegistrationNumber
+          </div>
+
+          <div class="csv-import-area" id="vendorDropZone" onclick="document.getElementById('vendorCsvFile').click()">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">📄 クリックしてCSVを選択、またはドラッグ&ドロップ</p>
+            <input id="vendorCsvFile" type="file" accept=".csv,text/csv" style="display:none" />
+            <p id="vendorFileInfo" style="font-size:12px;color:var(--accent);"></p>
+          </div>
+
+          <div class="row" style="margin-top:14px;">
+            <label for="vendorCsvText">または直接貼り付け</label>
+            <textarea id="vendorCsvText" rows="6" placeholder="vendorCode,vendorName&#10;artist-001,山田花子"></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button id="downloadVendorSample" type="button" class="ghost" style="flex:1;justify-content:center;font-size:13px;">📥 サンプルCSV</button>
+            <button id="importVendorCsv" type="button" style="flex:1;justify-content:center;font-size:13px;">📤 CSV取込実行</button>
+          </div>
+          <div id="vendorCsvStatus" class="status"></div>
+
+          <div id="vendorImportResult" class="import-progress" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Staff タブ ===== -->
+    <div id="pane-staff" class="master-pane">
+      <div class="grid two-col" style="margin-bottom:20px;">
+        <!-- 単体登録フォーム -->
+        <div class="panel">
+          <div class="section-heading">
+            <h2 style="margin-bottom:0;">Staff 登録 / 編集</h2>
+            <button type="button" class="ghost" onclick="clearStaffForm()" style="font-size:12px;padding:6px 12px;">🗑️ クリア</button>
+          </div>
+          <div class="row"><label for="slackUserId">Slack User ID <span style="color:var(--danger)">*</span></label><input id="slackUserId" type="text" placeholder="U0123456789" /></div>
+          <div class="row"><label for="staffName">氏名 <span style="color:var(--danger)">*</span></label><input id="staffName" type="text" /></div>
+          <div class="grid two-col" style="gap:10px;">
+            <div class="row"><label for="department">部署名</label><input id="department" type="text" /></div>
+            <div class="row"><label for="departmentCode">部署コード</label><input id="departmentCode" type="text" placeholder="LGL" /></div>
+          </div>
+          <div class="grid two-col" style="gap:10px;">
+            <div class="row"><label for="phone">Phone</label><input id="phone" type="text" /></div>
+            <div class="row"><label for="staffEmail">Email</label><input id="staffEmail" type="text" /></div>
+          </div>
+
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-weight:600;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--panel-border);">会社情報（甲表示用）</summary>
+            <div style="padding-top:12px;">
+              <div class="row"><label for="partyAName">会社名</label><input id="partyAName" type="text" value="株式会社アークライト" /></div>
+              <div class="row"><label for="partyAAddress">会社住所</label><textarea id="partyAAddress" rows="2">〒101-0052 東京都千代田区神田小川町1-2 風雲堂ビル2階</textarea></div>
+              <div class="row"><label for="partyARep">代表者名</label><input id="partyARep" type="text" value="代表取締役 青柳昌行" /></div>
+            </div>
+          </details>
+
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button id="saveStaff" type="button" style="flex:1;justify-content:center;">💾 Staff保存</button>
+          </div>
+          <div id="staffStatus" class="status"></div>
+        </div>
+
+        <!-- CSV一括登録 -->
+        <div class="panel">
+          <h2>Staff CSV一括登録</h2>
+          <div class="summary-box" style="margin-bottom:16px;font-size:12px;">
+            <strong>必須列:</strong> slackUserId, staffName<br>
+            <strong>任意列:</strong> department, departmentCode, phone, email, partyAName, partyAAddress, partyARep
+          </div>
+
+          <div class="csv-import-area" id="staffDropZone" onclick="document.getElementById('staffCsvFile').click()">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">📄 クリックしてCSVを選択、またはドラッグ&ドロップ</p>
+            <input id="staffCsvFile" type="file" accept=".csv,text/csv" style="display:none" />
+            <p id="staffFileInfo" style="font-size:12px;color:var(--accent);"></p>
+          </div>
+
+          <div class="row" style="margin-top:14px;">
+            <label for="staffCsvText">または直接貼り付け</label>
+            <textarea id="staffCsvText" rows="6" placeholder="slackUserId,staffName,department&#10;U0123456789,山田花子,法務部"></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button id="downloadStaffSample" type="button" class="ghost" style="flex:1;justify-content:center;font-size:13px;">📥 サンプルCSV</button>
+            <button id="importStaffCsv" type="button" style="flex:1;justify-content:center;font-size:13px;">📤 CSV取込実行</button>
+          </div>
+          <div id="staffCsvStatus" class="status"></div>
+
+          <div id="staffImportResult" class="import-progress" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 検索タブ ===== -->
+    <div id="pane-search" class="master-pane">
+      <div class="panel">
+        <h2>マスタ検索</h2>
+        <div class="search-bar">
+          <input id="masterSearchQuery" type="text" placeholder="vendorCode / 作家名 / Slack ID / 部署名..." />
+          <button id="runMasterSearch" type="button">🔍 検索</button>
+          <button id="resetMasterSearch" type="button" class="ghost">リセット</button>
+        </div>
+        <div id="masterSearchStatus" class="helper"></div>
+
+        <div class="grid two-col" style="margin-top:16px;">
+          <div>
+            <h3>Vendor 一覧 <small style="font-weight:400;color:var(--muted);">（クリックで編集フォームへ）</small></h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Vendor Code</th><th>Name</th><th>種別</th><th>更新日</th></tr></thead>
+                <tbody id="vendorSearchResults">
+                  <tr><td colspan="4" style="text-align:center;padding:16px;color:var(--muted);">読み込み中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>Staff 一覧 <small style="font-weight:400;color:var(--muted);">（クリックで編集フォームへ）</small></h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Slack ID</th><th>氏名</th><th>部署</th><th>更新日</th></tr></thead>
+                <tbody id="staffSearchResults">
+                  <tr><td colspan="4" style="text-align:center;padding:16px;color:var(--muted);">読み込み中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
   <script>
     const params = new URLSearchParams(window.location.search);
-    if (params.get("vendorCode")) {
-      document.getElementById("vendorCode").value = params.get("vendorCode");
-    }
-    if (params.get("vendorName")) {
-      document.getElementById("vendorName").value = params.get("vendorName");
+
+    // タブ切替
+    function switchTab(name, btn) {
+      document.querySelectorAll(".master-pane").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".master-tab").forEach(b => b.classList.remove("active"));
+      document.getElementById("pane-" + name).classList.add("active");
+      btn.classList.add("active");
     }
 
+    // URLパラメータでvendorCodeが来た場合
+    if (params.get("vendorCode")) {
+      document.getElementById("vendorCode").value = params.get("vendorCode");
+      if (params.get("vendorName")) {
+        document.getElementById("aliases").value = params.get("vendorName");
+      }
+      // Vendorタブはデフォルトでアクティブなので何もしない
+    }
+
+    // ===== CSV文字コード判定 =====
     async function readCsvFileWithEncoding(file) {
       const buffer = await file.arrayBuffer();
       const utf8Text = new TextDecoder("utf-8").decode(buffer);
-      const shiftJisText = decodeWithEncoding(buffer, "shift_jis");
-      const utf8Score = scoreDecodedText(utf8Text);
-      const shiftJisScore = scoreDecodedText(shiftJisText);
-      if (shiftJisText && shiftJisScore < utf8Score) {
+      const shiftJisText = decodeBuffer(buffer, "shift_jis");
+      if (shiftJisText && scoreText(shiftJisText) < scoreText(utf8Text)) {
         return { text: shiftJisText, encoding: "Shift_JIS" };
       }
       return { text: utf8Text, encoding: "UTF-8" };
     }
-
-    function decodeWithEncoding(buffer, encoding) {
-      try {
-        return new TextDecoder(encoding).decode(buffer);
-      } catch {
-        return "";
-      }
+    function decodeBuffer(buffer, encoding) {
+      try { return new TextDecoder(encoding).decode(buffer); } catch { return ""; }
+    }
+    function scoreText(text) {
+      return (text.match(/\uFFFD/g) || []).length * 10;
     }
 
-    function scoreDecodedText(text) {
-      if (!text) return Number.MAX_SAFE_INTEGER;
-      const replacementCount = (text.match(/�/g) || []).length;
-      const mojibakeCount = (text.match(/[�-�]/g) || []).length;
-      return replacementCount * 10 + mojibakeCount;
+    // ===== Drag & Drop ======
+    function setupDropZone(zoneId, fileInputId, textareaId, fileInfoId, statusId) {
+      const zone = document.getElementById(zoneId);
+      const fileInput = document.getElementById(fileInputId);
+      const textarea = document.getElementById(textareaId);
+      const fileInfo = document.getElementById(fileInfoId);
+
+      zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("dragging"); });
+      zone.addEventListener("dragleave", () => zone.classList.remove("dragging"));
+      zone.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        zone.classList.remove("dragging");
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        const decoded = await readCsvFileWithEncoding(file);
+        textarea.value = decoded.text;
+        fileInfo.textContent = file.name + " (" + decoded.encoding + ")";
+        document.getElementById(statusId).textContent = "ファイルを読み込みました: " + file.name;
+        document.getElementById(statusId).className = "status success";
+      });
+      fileInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const decoded = await readCsvFileWithEncoding(file);
+        textarea.value = decoded.text;
+        fileInfo.textContent = file.name + " (" + decoded.encoding + ")";
+        document.getElementById(statusId).textContent = "ファイルを読み込みました: " + file.name;
+        document.getElementById(statusId).className = "status success";
+      });
     }
 
-    document.getElementById("vendorCsvFile").addEventListener("change", async (event) => {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-      const decoded = await readCsvFileWithEncoding(file);
-      document.getElementById("vendorCsvText").value = decoded.text;
-      document.getElementById("vendorCsvStatus").textContent = "Vendor CSVを読み込みました。文字コード: " + decoded.encoding;
+    setupDropZone("vendorDropZone", "vendorCsvFile", "vendorCsvText", "vendorFileInfo", "vendorCsvStatus");
+    setupDropZone("staffDropZone", "staffCsvFile", "staffCsvText", "staffFileInfo", "staffCsvStatus");
+
+    // ===== Vendor保存 =====
+    document.getElementById("saveVendor").addEventListener("click", async () => {
+      const vendorStatus = document.getElementById("vendorStatus");
+      vendorStatus.textContent = "保存中...";
+      vendorStatus.className = "status";
+      const result = await postJson("/admin/api/masters/vendor", {
+        vendorCode: val("vendorCode"),
+        vendorName: val("vendorName"),
+        tradeName: val("tradeName"),
+        penName: val("penName"),
+        vendorSuffix: val("vendorSuffix"),
+        aliases: val("aliases"),
+        entityType: val("entityType"),
+        withholdingEnabled: document.getElementById("withholdingEnabled").checked,
+        address: val("address"),
+        phone: val("vendorPhone"),
+        email: val("email"),
+        contactDepartment: val("contactDepartment"),
+        contactName: val("contactName"),
+        vendorRepresentative: val("vendorRepresentative"),
+        bankInfo: val("bankInfo"),
+        bankName: val("bankName"),
+        branchName: val("branchName"),
+        accountType: val("accountType"),
+        accountNumber: val("accountNumber"),
+        accountHolderKana: val("accountHolderKana"),
+        isInvoiceIssuer: document.getElementById("isInvoiceIssuer").checked,
+        invoiceRegistrationNumber: val("invoiceRegistrationNumber"),
+        masterContractRef: val("masterContractRef"),
+      });
+      vendorStatus.textContent = result.ok ? "✅ Vendorを保存しました。" : "❌ 保存失敗: " + result.error;
+      vendorStatus.className = "status " + (result.ok ? "success" : "error");
     });
 
-    document.getElementById("staffCsvFile").addEventListener("change", async (event) => {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-      const decoded = await readCsvFileWithEncoding(file);
-      document.getElementById("staffCsvText").value = decoded.text;
-      document.getElementById("staffCsvStatus").textContent = "Staff CSVを読み込みました。文字コード: " + decoded.encoding;
+    // ===== Staff保存 =====
+    document.getElementById("saveStaff").addEventListener("click", async () => {
+      const staffStatus = document.getElementById("staffStatus");
+      staffStatus.textContent = "保存中...";
+      staffStatus.className = "status";
+      const result = await postJson("/admin/api/masters/staff", {
+        slackUserId: val("slackUserId"),
+        staffName: val("staffName"),
+        department: val("department"),
+        departmentCode: val("departmentCode"),
+        phone: val("phone"),
+        email: val("staffEmail"),
+        partyAName: val("partyAName"),
+        partyAAddress: val("partyAAddress"),
+        partyARep: val("partyARep"),
+      });
+      staffStatus.textContent = result.ok ? "✅ Staffを保存しました。" : "❌ 保存失敗: " + result.error;
+      staffStatus.className = "status " + (result.ok ? "success" : "error");
     });
 
+    // ===== Vendor CSV取込 =====
     document.getElementById("downloadVendorSample").addEventListener("click", () => {
       window.location.href = "/admin/api/masters/vendor/sample.csv";
     });
 
+    document.getElementById("importVendorCsv").addEventListener("click", async () => {
+      const statusEl = document.getElementById("vendorCsvStatus");
+      const resultEl = document.getElementById("vendorImportResult");
+      const csvVal = val("vendorCsvText");
+      if (!csvVal.trim()) {
+        statusEl.textContent = "❌ CSVを入力またはファイルを選択してください。";
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "⏳ 取込中...";
+      statusEl.className = "status";
+      resultEl.innerHTML = "";
+      resultEl.className = "import-progress";
+
+      const result = await postJson("/admin/api/masters/vendor/import", { csvText: csvVal });
+      if (!result.ok) {
+        statusEl.textContent = "❌ 取込失敗: " + result.error;
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "✅ Vendor CSV取込完了: " + result.count + " 件";
+      statusEl.className = "status success";
+
+      // 結果一覧表示
+      if (result.vendors && result.vendors.length > 0) {
+        resultEl.className = "import-progress show";
+        resultEl.innerHTML = "<strong style='font-size:13px;'>取込結果:</strong>" +
+          "<div class='table-wrap' style='margin-top:8px;'><table><thead><tr><th>VendorCode</th><th>名前</th></tr></thead><tbody>" +
+          result.vendors.map(v => \`<tr><td><code>\${escapeHtml(v.vendorCode)}</code></td><td>\${escapeHtml(v.vendorName)}</td></tr>\`).join("") +
+          "</tbody></table></div>";
+      }
+    });
+
+    // ===== Staff CSV取込 =====
     document.getElementById("downloadStaffSample").addEventListener("click", () => {
       window.location.href = "/admin/api/masters/staff/sample.csv";
     });
 
-    document.getElementById("saveVendor").addEventListener("click", async () => {
-      const result = await postJson("/admin/api/masters/vendor", {
-        vendorCode: value("vendorCode"),
-        vendorName: value("vendorName"),
-        tradeName: value("tradeName"),
-        penName: value("penName"),
-        vendorSuffix: value("vendorSuffix"),
-        aliases: value("aliases"),
-        entityType: value("entityType"),
-        withholdingEnabled: document.getElementById("withholdingEnabled").checked,
-        address: value("address"),
-        phone: value("vendorPhone"),
-        email: value("email"),
-        contactDepartment: value("contactDepartment"),
-        contactName: value("contactName"),
-        vendorRepresentative: value("vendorRepresentative"),
-        bankInfo: value("bankInfo"),
-        bankName: value("bankName"),
-        branchName: value("branchName"),
-        accountType: value("accountType"),
-        accountNumber: value("accountNumber"),
-        accountHolderKana: value("accountHolderKana"),
-        isInvoiceIssuer: document.getElementById("isInvoiceIssuer").checked,
-        invoiceRegistrationNumber: value("invoiceRegistrationNumber"),
-        masterContractRef: value("masterContractRef"),
-      });
-      document.getElementById("vendorStatus").textContent = result.ok ? "Vendorを保存しました。" : "保存失敗: " + result.error;
-    });
-
-    document.getElementById("saveStaff").addEventListener("click", async () => {
-      const result = await postJson("/admin/api/masters/staff", {
-        slackUserId: value("slackUserId"),
-        staffName: value("staffName"),
-        department: value("department"),
-        departmentCode: value("departmentCode"),
-        phone: value("phone"),
-        email: value("staffEmail"),
-        partyAName: value("partyAName"),
-        partyAAddress: value("partyAAddress"),
-        partyARep: value("partyARep"),
-      });
-      document.getElementById("staffStatus").textContent = result.ok ? "Staffを保存しました。" : "保存失敗: " + result.error;
-    });
-
-    document.getElementById("importVendorCsv").addEventListener("click", async () => {
-      const result = await postJson("/admin/api/masters/vendor/import", {
-        csvText: value("vendorCsvText"),
-      });
-      document.getElementById("vendorCsvStatus").textContent = result.ok
-        ? "Vendor CSV取込完了: " + result.count + " 件"
-        : "取込失敗: " + result.error;
-    });
-
     document.getElementById("importStaffCsv").addEventListener("click", async () => {
-      const result = await postJson("/admin/api/masters/staff/import", {
-        csvText: value("staffCsvText"),
-      });
-      document.getElementById("staffCsvStatus").textContent = result.ok
-        ? "Staff CSV取込完了: " + result.count + " 件"
-        : "取込失敗: " + result.error;
+      const statusEl = document.getElementById("staffCsvStatus");
+      const resultEl = document.getElementById("staffImportResult");
+      const csvVal = val("staffCsvText");
+      if (!csvVal.trim()) {
+        statusEl.textContent = "❌ CSVを入力またはファイルを選択してください。";
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "⏳ 取込中...";
+      statusEl.className = "status";
+      resultEl.innerHTML = "";
+      resultEl.className = "import-progress";
+
+      const result = await postJson("/admin/api/masters/staff/import", { csvText: csvVal });
+      if (!result.ok) {
+        statusEl.textContent = "❌ 取込失敗: " + result.error;
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "✅ Staff CSV取込完了: " + result.count + " 件";
+      statusEl.className = "status success";
+
+      if (result.staffs && result.staffs.length > 0) {
+        resultEl.className = "import-progress show";
+        resultEl.innerHTML = "<strong style='font-size:13px;'>取込結果:</strong>" +
+          "<div class='table-wrap' style='margin-top:8px;'><table><thead><tr><th>Slack ID</th><th>氏名</th><th>部署</th></tr></thead><tbody>" +
+          result.staffs.map(s => \`<tr><td><code>\${escapeHtml(s.slackUserId)}</code></td><td>\${escapeHtml(s.staffName)}</td><td>\${escapeHtml(s.department || "-")}</td></tr>\`).join("") +
+          "</tbody></table></div>";
+      }
     });
 
-    if (params.get("vendorCode")) {
-      fetch("/admin/api/masters/vendor/" + encodeURIComponent(params.get("vendorCode")))
-        .then((response) => response.json())
-        .then((result) => {
-          if (!result.ok) {
-            document.getElementById("vendorStatus").textContent = "未登録の vendorID です。必要項目を入力して保存してください。";
-            if (params.get("vendorName")) {
-              document.getElementById("aliases").value = params.get("vendorName");
-            }
-            return;
-          }
-          document.getElementById("vendorName").value = result.vendor.vendorName || document.getElementById("vendorName").value;
-          document.getElementById("tradeName").value = result.vendor.tradeName || "";
-          document.getElementById("penName").value = result.vendor.penName || "";
-          document.getElementById("entityType").value = result.vendor.entityType || "corporation";
-          document.getElementById("withholdingEnabled").checked = Boolean(result.vendor.withholdingEnabled);
-          document.getElementById("vendorRepresentative").value = result.vendor.vendorRepresentative || "";
-          if (params.get("vendorName") && params.get("vendorName") !== result.vendor.vendorName) {
-            const existingAliases = document.getElementById("aliases").value.trim();
-            const nextAlias = params.get("vendorName");
-            document.getElementById("aliases").value = existingAliases
-              ? existingAliases + "\\n" + nextAlias
-              : nextAlias;
-            document.getElementById("vendorStatus").textContent = "既存Vendorが見つかりました。必要なら別名を aliases に追加して保存してください。";
-            return;
-          }
-          document.getElementById("vendorStatus").textContent = "既存Vendorが見つかりました。必要に応じて更新してください。";
-        })
-        .catch(() => {
-          document.getElementById("vendorStatus").textContent = "vendorID の確認に失敗しました。";
-        });
+    // ===== フォームクリア =====
+    function clearVendorForm() {
+      ["vendorCode","vendorName","tradeName","penName","vendorSuffix","aliases","address","vendorPhone","email",
+       "contactDepartment","contactName","vendorRepresentative","masterContractRef","bankInfo","bankName","branchName",
+       "accountType","accountNumber","accountHolderKana","invoiceRegistrationNumber"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = id === "vendorSuffix" ? "御中" : "";
+      });
+      document.getElementById("withholdingEnabled").checked = false;
+      document.getElementById("isInvoiceIssuer").checked = false;
+      document.getElementById("entityType").value = "corporation";
+      document.getElementById("vendorStatus").textContent = "";
+      document.getElementById("vendorStatus").className = "status";
     }
 
-    document.getElementById("runMasterSearch").addEventListener("click", () => {
-      refreshMasterSearch();
-    });
+    function clearStaffForm() {
+      ["slackUserId","staffName","department","departmentCode","phone","staffEmail"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      document.getElementById("staffStatus").textContent = "";
+      document.getElementById("staffStatus").className = "status";
+    }
 
+    // ===== 検索 =====
+    document.getElementById("runMasterSearch").addEventListener("click", refreshMasterSearch);
     document.getElementById("resetMasterSearch").addEventListener("click", () => {
       document.getElementById("masterSearchQuery").value = "";
       refreshMasterSearch();
     });
-
-    document.getElementById("masterSearchQuery").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        refreshMasterSearch();
-      }
+    document.getElementById("masterSearchQuery").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); refreshMasterSearch(); }
     });
 
-    refreshMasterSearch();
-
     async function refreshMasterSearch() {
-      const query = value("masterSearchQuery").trim();
+      const query = val("masterSearchQuery");
       document.getElementById("masterSearchStatus").textContent = "検索中...";
       try {
-        const [vendorResult, staffResult] = await Promise.all([
+        const [vr, sr] = await Promise.all([
           fetchJson("/admin/api/masters/vendor?q=" + encodeURIComponent(query)),
           fetchJson("/admin/api/masters/staff?q=" + encodeURIComponent(query)),
         ]);
-        renderVendorSearchResults(vendorResult.vendors || []);
-        renderStaffSearchResults(staffResult.staffs || []);
+        renderVendors(vr.vendors || []);
+        renderStaffs(sr.staffs || []);
         document.getElementById("masterSearchStatus").textContent =
-          "Vendor " + (vendorResult.count || 0) + " 件 / Staff " + (staffResult.count || 0) + " 件";
-      } catch (error) {
+          "Vendor " + (vr.count || 0) + " 件 / Staff " + (sr.count || 0) + " 件";
+      } catch {
         document.getElementById("masterSearchStatus").textContent = "検索に失敗しました。";
       }
     }
 
-    function renderVendorSearchResults(vendors) {
+    function renderVendors(vendors) {
       const tbody = document.getElementById("vendorSearchResults");
       if (!vendors.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="note">該当する Vendor はありません。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--muted);">該当なし</td></tr>';
         return;
       }
-      tbody.innerHTML = vendors.map((vendor) => {
-        return '<tr data-vendor-code="' + escapeHtml(vendor.vendorCode) + '">' +
-          '<td><button type="button" class="chip" data-vendor-code="' + escapeHtml(vendor.vendorCode) + '">' + escapeHtml(vendor.vendorCode) + '</button></td>' +
-          '<td>' + escapeHtml(vendor.vendorName || "") + '</td>' +
-          '<td>' + escapeHtml(vendor.entityType || "") + '</td>' +
-          '<td>' + formatDate(vendor.updatedAt) + '</td>' +
-        '</tr>';
-      }).join("");
-      tbody.querySelectorAll("[data-vendor-code]").forEach((element) => {
-        element.addEventListener("click", () => loadVendor(element.getAttribute("data-vendor-code")));
-      });
+      tbody.innerHTML = vendors.map(v =>
+        \`<tr style="cursor:pointer;" onclick="loadVendor('\${escapeHtml(v.vendorCode)}')" title="クリックで編集">
+          <td><code>\${escapeHtml(v.vendorCode)}</code></td>
+          <td>\${escapeHtml(v.vendorName || "")}</td>
+          <td><span class="tag" style="font-size:11px;">\${escapeHtml(v.entityType || "")}</span></td>
+          <td style="font-size:12px;color:var(--muted);">\${formatDate(v.updatedAt)}</td>
+        </tr>\`
+      ).join("");
     }
 
-    function renderStaffSearchResults(staffs) {
+    function renderStaffs(staffs) {
       const tbody = document.getElementById("staffSearchResults");
       if (!staffs.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="note">該当する Staff はありません。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--muted);">該当なし</td></tr>';
         return;
       }
-      tbody.innerHTML = staffs.map((staff) => {
-        return '<tr data-slack-user-id="' + escapeHtml(staff.slackUserId) + '">' +
-          '<td><button type="button" class="chip" data-slack-user-id="' + escapeHtml(staff.slackUserId) + '">' + escapeHtml(staff.slackUserId) + '</button></td>' +
-          '<td>' + escapeHtml(staff.staffName || "") + '</td>' +
-          '<td>' + escapeHtml(staff.department || "") + '</td>' +
-          '<td>' + formatDate(staff.updatedAt) + '</td>' +
-        '</tr>';
-      }).join("");
-      tbody.querySelectorAll("[data-slack-user-id]").forEach((element) => {
-        element.addEventListener("click", () => loadStaff(element.getAttribute("data-slack-user-id")));
-      });
+      tbody.innerHTML = staffs.map(s =>
+        \`<tr style="cursor:pointer;" onclick="loadStaff('\${escapeHtml(s.slackUserId)}')" title="クリックで編集">
+          <td><code>\${escapeHtml(s.slackUserId)}</code></td>
+          <td>\${escapeHtml(s.staffName || "")}</td>
+          <td>\${escapeHtml(s.department || "")}</td>
+          <td style="font-size:12px;color:var(--muted);">\${formatDate(s.updatedAt)}</td>
+        </tr>\`
+      ).join("");
     }
 
     async function loadVendor(vendorCode) {
-      if (!vendorCode) return;
       const result = await fetchJson("/admin/api/masters/vendor/" + encodeURIComponent(vendorCode));
       if (!result.ok || !result.vendor) return;
-      document.getElementById("vendorCode").value = result.vendor.vendorCode || "";
-      document.getElementById("vendorName").value = result.vendor.vendorName || "";
-      document.getElementById("vendorSuffix").value = result.vendor.vendorSuffix || "御中";
-      document.getElementById("entityType").value = result.vendor.entityType || "corporation";
-      document.getElementById("withholdingEnabled").checked = Boolean(result.vendor.withholdingEnabled);
-      document.getElementById("aliases").value = Array.isArray(result.vendor.aliases) ? result.vendor.aliases.join("\\n") : "";
-      document.getElementById("address").value = result.vendor.address || "";
-      document.getElementById("vendorPhone").value = result.vendor.phone || "";
-      document.getElementById("email").value = result.vendor.email || "";
-      document.getElementById("contactDepartment").value = result.vendor.contactDepartment || "";
-      document.getElementById("contactName").value = result.vendor.contactName || "";
-      document.getElementById("vendorRepresentative").value = result.vendor.vendorRepresentative || "";
-      document.getElementById("masterContractRef").value = result.vendor.masterContractRef || "";
-      document.getElementById("bankInfo").value = result.vendor.bankInfo || "";
-      document.getElementById("bankName").value = result.vendor.bankName || "";
-      document.getElementById("branchName").value = result.vendor.branchName || "";
-      document.getElementById("accountType").value = result.vendor.accountType || "";
-      document.getElementById("accountNumber").value = result.vendor.accountNumber || "";
-      document.getElementById("accountHolderKana").value = result.vendor.accountHolderKana || "";
-      document.getElementById("isInvoiceIssuer").checked = Boolean(result.vendor.isInvoiceIssuer);
-      document.getElementById("invoiceRegistrationNumber").value = result.vendor.invoiceRegistrationNumber || "";
-      document.getElementById("vendorStatus").textContent = "Vendor一覧から読み込みました。必要に応じて更新してください。";
+      const v = result.vendor;
+      document.getElementById("vendorCode").value = v.vendorCode || "";
+      document.getElementById("vendorName").value = v.vendorName || "";
+      document.getElementById("tradeName").value = v.tradeName || "";
+      document.getElementById("penName").value = v.penName || "";
+      document.getElementById("vendorSuffix").value = v.vendorSuffix || "御中";
+      document.getElementById("entityType").value = v.entityType || "corporation";
+      document.getElementById("withholdingEnabled").checked = Boolean(v.withholdingEnabled);
+      document.getElementById("aliases").value = Array.isArray(v.aliases) ? v.aliases.join("\\n") : "";
+      document.getElementById("address").value = v.address || "";
+      document.getElementById("vendorPhone").value = v.phone || "";
+      document.getElementById("email").value = v.email || "";
+      document.getElementById("contactDepartment").value = v.contactDepartment || "";
+      document.getElementById("contactName").value = v.contactName || "";
+      document.getElementById("vendorRepresentative").value = v.vendorRepresentative || "";
+      document.getElementById("masterContractRef").value = v.masterContractRef || "";
+      document.getElementById("bankInfo").value = v.bankInfo || "";
+      document.getElementById("bankName").value = v.bankName || "";
+      document.getElementById("branchName").value = v.branchName || "";
+      document.getElementById("accountType").value = v.accountType || "";
+      document.getElementById("accountNumber").value = v.accountNumber || "";
+      document.getElementById("accountHolderKana").value = v.accountHolderKana || "";
+      document.getElementById("isInvoiceIssuer").checked = Boolean(v.isInvoiceIssuer);
+      document.getElementById("invoiceRegistrationNumber").value = v.invoiceRegistrationNumber || "";
+      document.getElementById("vendorStatus").textContent = "✅ 読み込みました。";
+      document.getElementById("vendorStatus").className = "status success";
+      // Vendorタブに切替
+      switchTab("vendor", document.querySelectorAll(".master-tab")[0]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     async function loadStaff(slackUserId) {
-      if (!slackUserId) return;
       const result = await fetchJson("/admin/api/masters/staff/" + encodeURIComponent(slackUserId));
       if (!result.ok || !result.staff) return;
-      document.getElementById("slackUserId").value = result.staff.slackUserId || "";
-      document.getElementById("staffName").value = result.staff.staffName || "";
-      document.getElementById("department").value = result.staff.department || "";
-      document.getElementById("departmentCode").value = result.staff.departmentCode || "";
-      document.getElementById("phone").value = result.staff.phone || "";
-      document.getElementById("staffEmail").value = result.staff.email || "";
-      document.getElementById("partyAName").value = result.staff.partyAName || "";
-      document.getElementById("partyAAddress").value = result.staff.partyAAddress || "";
-      document.getElementById("partyARep").value = result.staff.partyARep || "";
-      document.getElementById("staffStatus").textContent = "Staff一覧から読み込みました。必要に応じて更新してください。";
+      const s = result.staff;
+      document.getElementById("slackUserId").value = s.slackUserId || "";
+      document.getElementById("staffName").value = s.staffName || "";
+      document.getElementById("department").value = s.department || "";
+      document.getElementById("departmentCode").value = s.departmentCode || "";
+      document.getElementById("phone").value = s.phone || "";
+      document.getElementById("staffEmail").value = s.email || "";
+      document.getElementById("partyAName").value = s.partyAName || "";
+      document.getElementById("partyAAddress").value = s.partyAAddress || "";
+      document.getElementById("partyARep").value = s.partyARep || "";
+      document.getElementById("staffStatus").textContent = "✅ 読み込みました。";
+      document.getElementById("staffStatus").className = "status success";
+      // Staffタブに切替
+      switchTab("staff", document.querySelectorAll(".master-tab")[1]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    function value(id) { return document.getElementById(id).value; }
-    async function fetchJson(url) {
-      const response = await fetch(url);
-      return response.json();
-    }
+    // ===== ユーティリティ =====
+    function val(id) { return (document.getElementById(id) || {}).value || ""; }
+    async function fetchJson(url) { return (await fetch(url)).json(); }
     async function postJson(url, body) {
-      const response = await fetch(url, {
+      return (await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      });
-      return response.json();
+      })).json();
     }
-    function formatDate(value) {
-      if (!value) return "-";
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("ja-JP");
+    function formatDate(v) {
+      if (!v) return "-";
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? "-" : d.toLocaleString("ja-JP", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
     }
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    function escapeHtml(v) {
+      return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     }
+
+    // 初期ロード
+    refreshMasterSearch();
   </script>
 </body>
 </html>`;
 }
+
 
 async function buildWorkflowAttentionSummary(): Promise<Array<{
   label: string;
@@ -5576,31 +5777,19 @@ function buildAdminHubHtml(
 }
 
 function buildCategorySwitchHtml(
-  eyebrow: string,
-  title: string,
-  description: string,
+  _eyebrow: string,
+  _title: string,
+  _description: string,
   links: AdminSectionLink[],
 ): string {
   return `
-    <section class="panel quick-guide" style="margin-bottom:20px;">
-      <div class="section-heading">
-        <div>
-          <div class="eyebrow">${escapeHtmlText(eyebrow)}</div>
-          <h2>${escapeHtmlText(title)}</h2>
-        </div>
-        <p class="section-copy">${escapeHtmlText(description)}</p>
-      </div>
-      <div class="quick-grid">
-        ${links.map((link) => `
-          <a class="quick-card runtime-card${link.active ? " active-panel-link" : ""}" href="${escapeHtmlAttr(link.href)}">
-            <div class="card-topline">${link.active ? "現在の画面" : "関連画面"}</div>
-            <strong>${escapeHtmlText(link.label)}</strong>
-            <span>${escapeHtmlText(link.description)}</span>
-            <span class="card-link">${link.active ? "この画面を表示中" : "この画面を開く"}</span>
-          </a>
-        `).join("")}
-      </div>
-    </section>
+    <div class="category-switch" style="margin-bottom:20px;">
+      ${links.map((link) => `
+        <a class="category-switch-link${link.active ? " active-panel-link" : ""}" href="${escapeHtmlAttr(link.href)}" title="${escapeHtmlAttr(link.description)}">
+          ${escapeHtmlText(link.label)}
+        </a>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -6260,152 +6449,266 @@ function buildCsvAdminHtml(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSV一括発注</title>
-  <style>${sharedAdminCss()}</style>
+  <title>CSV一括発注 - LegalBridge</title>
+  <style>${sharedAdminCss()}
+    .csv-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+    .csv-sidebar { position: sticky; top: 20px; }
+    @media(max-width:900px){ .csv-layout { grid-template-columns: 1fr; } .csv-sidebar { position: static; } }
+    .field-group { border: 1px solid var(--panel-border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 16px; }
+    .field-group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid var(--panel-border);
+      cursor: pointer; user-select: none; font-weight: 600; font-size: 13px;
+    }
+    .field-group-header:hover { background: #f1f5f9; }
+    .field-group-body { padding: 16px; }
+    .field-group-body .row:last-child { margin-bottom: 0; }
+    .field-group-toggle { font-size: 12px; color: var(--muted); transition: transform 0.2s; }
+    .field-group.collapsed .field-group-body { display: none; }
+    .field-group.collapsed .field-group-toggle { transform: rotate(-90deg); }
+    .status-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500;
+      background: #f8fafc; border: 1px solid var(--panel-border);
+      min-height: 42px;
+    }
+    .status-bar.success { background: #f0fff4; border-color: rgba(56,161,105,0.2); color: #276749; }
+    .status-bar.error { background: #fff5f5; border-color: rgba(229,62,62,0.18); color: #c53030; }
+    .status-bar .icon { font-size: 16px; flex-shrink: 0; }
+    .preview-count { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 0; }
+    .section-divider { border: none; border-top: 1px solid var(--panel-border); margin: 20px 0; }
+    .vendor-status-table { margin-top: 10px; }
+    .vendor-ok { color: var(--success); }
+    .vendor-warn { color: var(--warning); }
+    .vendor-err { color: var(--danger); }
+    .import-result { padding: 14px; background: #f0fff4; border: 1px solid rgba(56,161,105,0.2); border-radius: var(--radius-md); }
+  </style>
 </head>
 <body>
+  ${buildAdminNav("csv")}
   <div class="wrap">
-    ${buildAdminNav("csv")}
-    ${buildCategorySwitchHtml("Orders", "発注管理の関連画面", "発注の単体作成、一括取込、前提設定をこのカテゴリで行います。", [
-      { href: "/admin/orders", label: "発注管理トップ", description: "発注関連の入口をまとめて確認", active: false },
-      { href: "/admin/workflow/orders/create", label: "発注書単体作成", description: "単票の発注書・企画発注書・出版発注書を起票", active: false },
-      { href: "/admin/orders/csv", label: "CSV / Excel 一括作成", description: "明細一括取込と親課題・明細課題の整備", active: true },
-      { href: "/admin/settings/mapping", label: "マッピング設定", description: "取込列と既定値を調整", active: false },
+    ${buildCategorySwitchHtml("Orders", "発注管理", "", [
+      { href: "/admin/orders", label: "発注管理トップ", description: "発注関連の入口", active: false },
+      { href: "/admin/workflow/orders/create", label: "発注書単体作成", description: "単票作成", active: false },
+      { href: "/admin/orders/csv", label: "CSV / Excel 一括作成", description: "明細一括取込", active: true },
+      { href: "/admin/settings/mapping", label: "マッピング設定", description: "列対応と既定値", active: false },
     ])}
-    <section class="hero panel">
-      <h1>CSV一括発注</h1>
-      <p class="sub">通常CSVと、企画発注書 / 出版一括発注書向けの列マッピングCSVを取り込めます。マッピングは設定画面から切り替えて管理できます。</p>
-    </section>
 
-    <div class="grid two-col">
-      <section class="panel">
-        <h2>取込入力</h2>
-        <div class="row">
-          <label for="issueKey">Backlog課題キー</label>
-          <input id="issueKey" type="text" placeholder="LEGAL-123" />
-        </div>
-        <div class="row">
-          <label for="mode">取込モード</label>
-          <select id="mode">
-            <option value="generic">通常CSV</option>
-            <option value="planning">企画発注書マッピング</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="mappingProfileId">マッピング種別</label>
-          <select id="mappingProfileId">
-            ${profileOptions}
-          </select>
-        </div>
-        <div class="row">
-          <label for="sourceFileName">元ファイル名</label>
-          <input id="sourceFileName" type="text" placeholder="OP_2025年11月分進行用.csv" />
-        </div>
-        <div class="row">
-          <label for="xlsxFile">Excelファイル (.xlsx)</label>
-          <input id="xlsxFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        </div>
-        <div class="row">
-          <label for="sheetName">シート選択</label>
-          <select id="sheetName">
-            <option value="">Excelを選ぶとシート一覧が出ます</option>
-          </select>
-        </div>
-        <div class="actions" style="margin-top:-4px; margin-bottom:10px;">
-          <button id="extractXlsxBtn" type="button">選択シートをCSV化</button>
-        </div>
-        <div class="row">
-          <label for="projectTitle">案件タイトル上書き</label>
-          <input id="projectTitle" type="text" placeholder="空欄なら設定値またはファイル名から自動" />
-        </div>
-        <div class="row">
-          <label for="specialTerms">特約事項</label>
-          <textarea id="specialTerms" placeholder="企画発注書の共通特約を入力">${escapeHtmlText(settings.defaults.specialTerms)}</textarea>
-        </div>
-        <div class="row">
-          <label for="remarks">備考</label>
-          <textarea id="remarks" placeholder="発注書共通の備考を入力">${escapeHtmlText(settings.defaults.remarks)}</textarea>
-        </div>
-        <div class="row">
-          <label for="acceptMethod">承諾方法</label>
-          <input id="acceptMethod" type="text" placeholder="メール承諾、Backlogコメント承諾 など" value="${escapeHtmlAttr(settings.defaults.acceptMethod)}" />
-        </div>
-        <div class="row">
-          <label for="acceptReplyDueDate">承諾期限</label>
-          <input id="acceptReplyDueDate" type="text" placeholder="2026-04-15 など" value="${escapeHtmlAttr(settings.defaults.acceptReplyDueDate)}" />
-        </div>
-        <div class="row">
-          <label for="csvFile">CSVファイル</label>
-          <input id="csvFile" type="file" accept=".csv,text/csv" />
-        </div>
-        <div class="row">
-          <label for="csvText">CSV内容</label>
-          <textarea id="csvText" placeholder="no,category,pay_method,qty,unit_price,desc,spec,amount,due_date"></textarea>
-        </div>
-        <div class="inline">
-          <input id="generateDocuments" type="checkbox" checked />
-          <label for="generateDocuments" style="margin:0;font-weight:400;">取込後に発注書を生成する</label>
-        </div>
-        <div class="actions">
-          <button id="previewBtn" type="button">プレビュー</button>
-          <button id="importBtn" type="button">取込実行</button>
-          <button id="bootstrapVendorsBtn" class="ghost" type="button">未登録Vendorを仮登録</button>
-          <button id="sampleBtn" class="ghost" type="button">サンプルを入れる</button>
-          <a class="link-button" href="/admin/api/orders/csv/sample/planning.csv">企画サンプルCSVをDL</a>
-          <a class="link-button" href="/admin/api/orders/csv/sample/publishing_bulk.csv">出版サンプルCSVをDL</a>
-          <a class="link-button" href="/admin/api/orders/csv/variables/planning.csv">企画 変数対応表CSVをDL</a>
-          <a class="link-button" href="/admin/api/orders/csv/variables/publishing_bulk.csv">出版 変数対応表CSVをDL</a>
-          <a class="link-button" href="/admin/settings/mapping">マッピング設定を開く</a>
-        </div>
-        <div id="status" class="status"></div>
-      </section>
-
-      <section class="panel">
-        <h2>取込メモ</h2>
-        <p class="note">通常CSVは <code>no,category,pay_method,qty,unit_price,desc,spec,amount,due_date</code> を推奨します。</p>
-        <p id="mappingModeNote" class="note">企画発注書モードでは、選択したマッピング種別に応じて列名を読み替えます。</p>
-        <div class="sample" id="sampleText">カードNo.,カード名,色,カード種類,キャラ備考,特徴,画角,イラスト指定,作家名,完成,B〆
-A-001,炎の剣士,赤,ユニット,主人公,火炎・前衛,バストアップ,躍動感のある構図,山田花子,2026/04/15,2026/04/30
-B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らかい自然光,山田花子,2026/04/30,</div>
-        <div id="planningSummary" class="summary-box" style="display:none;"></div>
-        <div id="vendorAlert" class="summary-box" style="display:none; margin-top:10px;"></div>
-        <div id="warningBox" class="summary-box" style="display:none; margin-top:10px;"></div>
-      </section>
+    <div style="margin-bottom:20px;">
+      <h1 style="margin-bottom:4px;">📊 CSV / Excel 一括取込</h1>
+      <p class="sub">通常CSV・企画発注書・出版一括発注書に対応しています。Excelからシートを選んでCSV化することもできます。</p>
     </div>
 
-    <section class="panel" style="margin-top:20px;">
-      <h2>プレビュー</h2>
-      <div class="preview">
-        <table>
-          <thead>
-            <tr>
-              <th>No</th>
-              <th>登録番号</th>
-              <th>区分</th>
-              <th>支払方法</th>
-              <th>数量</th>
-              <th>単価</th>
-          <th>件名</th>
-          <th>仕様</th>
-          <th>金額ソース</th>
-          <th>金額</th>
-          <th>納期</th>
-        </tr>
-      </thead>
-      <tbody id="previewBody">
-            <tr><td colspan="10" class="note">まだプレビューしていません。</td></tr>
-          </tbody>
-        </table>
+    <div class="csv-layout">
+      <!-- ===== 左側: 入力フォーム ===== -->
+      <div class="csv-sidebar">
+        <div class="panel">
+          <!-- ステップ1: 基本設定 -->
+          <div class="field-group">
+            <div class="field-group-header" onclick="toggleFieldGroup(this)">
+              <span>① 基本設定</span>
+              <span class="field-group-toggle">▼</span>
+            </div>
+            <div class="field-group-body">
+              <div class="row">
+                <label for="issueKey">Backlog課題キー <span style="color:var(--danger)">*</span></label>
+                <input id="issueKey" type="text" placeholder="LEGAL-123" autocomplete="off" />
+              </div>
+              <div class="row">
+                <label for="mode">取込モード</label>
+                <select id="mode">
+                  <option value="generic">通常CSV</option>
+                  <option value="planning">企画発注書マッピング</option>
+                </select>
+              </div>
+              <div class="row">
+                <label for="mappingProfileId">マッピング種別</label>
+                <select id="mappingProfileId">
+                  ${profileOptions}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ステップ2: ファイル選択 -->
+          <div class="field-group">
+            <div class="field-group-header" onclick="toggleFieldGroup(this)">
+              <span>② ファイル選択</span>
+              <span class="field-group-toggle">▼</span>
+            </div>
+            <div class="field-group-body">
+              <div class="row">
+                <label for="xlsxFile">Excelファイル (.xlsx)</label>
+                <input id="xlsxFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+              </div>
+              <div class="row" id="sheetRow" style="display:none;">
+                <label for="sheetName">シート選択</label>
+                <select id="sheetName">
+                  <option value="">シートを選択...</option>
+                </select>
+                <div class="btn-row" style="margin-top:8px;">
+                  <button id="extractXlsxBtn" type="button" class="ghost" style="font-size:12px;padding:7px 14px;">📋 選択シートをCSV化</button>
+                </div>
+              </div>
+              <div class="row">
+                <label for="csvFile">CSVファイル (.csv)</label>
+                <input id="csvFile" type="file" accept=".csv,text/csv" />
+              </div>
+              <div class="row">
+                <label for="sourceFileName">元ファイル名</label>
+                <input id="sourceFileName" type="text" placeholder="OP_2025年11月分.csv" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ステップ3: CSV内容 -->
+          <div class="field-group">
+            <div class="field-group-header" onclick="toggleFieldGroup(this)">
+              <span>③ CSV内容</span>
+              <span class="field-group-toggle">▼</span>
+            </div>
+            <div class="field-group-body">
+              <div class="row">
+                <textarea id="csvText" placeholder="no,category,pay_method,qty,unit_price,desc,spec,amount,due_date&#10;1,イラスト,一括,1,50000,キャラクターイラスト,キャラA バストアップ,50000,2026-04-30" rows="8"></textarea>
+              </div>
+              <div id="mappingModeNote" class="helper" style="margin-bottom:10px;"></div>
+              <div class="btn-row">
+                <button id="sampleBtn" type="button" class="ghost" style="font-size:12px;padding:7px 14px;">📝 サンプル挿入</button>
+                <a class="link-button" style="font-size:12px;" href="/admin/api/orders/csv/sample/planning.csv">企画CSV</a>
+                <a class="link-button" style="font-size:12px;" href="/admin/api/orders/csv/sample/publishing_bulk.csv">出版CSV</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- ステップ4: 追加設定 -->
+          <div class="field-group collapsed">
+            <div class="field-group-header" onclick="toggleFieldGroup(this)">
+              <span>④ 追加設定（任意）</span>
+              <span class="field-group-toggle">▼</span>
+            </div>
+            <div class="field-group-body">
+              <div class="row">
+                <label for="projectTitle">案件タイトル上書き</label>
+                <input id="projectTitle" type="text" placeholder="空欄なら設定値/ファイル名から自動" />
+              </div>
+              <div class="row">
+                <label for="specialTerms">特約事項</label>
+                <textarea id="specialTerms" rows="3" placeholder="企画発注書の共通特約">${escapeHtmlText(settings.defaults.specialTerms)}</textarea>
+              </div>
+              <div class="row">
+                <label for="remarks">備考</label>
+                <textarea id="remarks" rows="2" placeholder="発注書共通の備考">${escapeHtmlText(settings.defaults.remarks)}</textarea>
+              </div>
+              <div class="row">
+                <label for="acceptMethod">承諾方法</label>
+                <input id="acceptMethod" type="text" placeholder="メール承諾 など" value="${escapeHtmlAttr(settings.defaults.acceptMethod)}" />
+              </div>
+              <div class="row">
+                <label for="acceptReplyDueDate">承諾期限</label>
+                <input id="acceptReplyDueDate" type="text" placeholder="2026-04-15" value="${escapeHtmlAttr(settings.defaults.acceptReplyDueDate)}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- オプション -->
+          <div style="margin-bottom:16px;">
+            <label class="inline-check">
+              <input id="generateDocuments" type="checkbox" checked />
+              取込後に発注書を生成する
+            </label>
+          </div>
+
+          <!-- アクションボタン -->
+          <div style="display:grid;gap:8px;">
+            <button id="previewBtn" type="button" style="width:100%;justify-content:center;">🔍 プレビュー確認</button>
+            <button id="importBtn" type="button" style="width:100%;justify-content:center;background:var(--accent-hover);">✅ 取込実行</button>
+            <div class="btn-row" style="justify-content:center;">
+              <button id="bootstrapVendorsBtn" class="ghost" type="button" style="font-size:12px;padding:7px 14px;">Vendor仮登録</button>
+              <a class="link-button" style="font-size:12px;" href="/admin/api/orders/csv/variables/planning.csv">変数対応表</a>
+              <a class="link-button" style="font-size:12px;" href="/admin/settings/mapping">マッピング設定</a>
+            </div>
+          </div>
+
+          <!-- ステータス表示 -->
+          <div id="statusBar" class="status-bar" style="margin-top:16px;"></div>
+        </div>
       </div>
-    </section>
+
+      <!-- ===== 右側: 結果表示 ===== -->
+      <div>
+        <!-- Vendor確認 -->
+        <div id="vendorAlert" style="display:none;" class="panel" style="margin-bottom:16px;">
+          <h3>👥 Vendor確認</h3>
+          <div id="vendorAlertContent"></div>
+        </div>
+
+        <!-- 取込前チェック -->
+        <div id="warningPanel" style="display:none;" class="panel" style="margin-bottom:16px;">
+          <h3>⚠️ 取込前チェック</h3>
+          <div id="warningContent"></div>
+        </div>
+
+        <!-- 企画発注書サマリー -->
+        <div id="planningSummaryPanel" style="display:none;" class="panel" style="margin-bottom:16px;">
+          <h3>📋 マッピング結果</h3>
+          <div id="planningSummaryContent"></div>
+        </div>
+
+        <!-- 取込結果 -->
+        <div id="importResultPanel" style="display:none;" class="panel" style="margin-bottom:16px;">
+          <h3>✅ 取込結果</h3>
+          <div id="importResultContent" class="import-result"></div>
+        </div>
+
+        <!-- プレビューテーブル -->
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h2 style="margin-bottom:0;">プレビュー</h2>
+            <span id="previewCount" class="preview-count" style="display:none;"></span>
+          </div>
+          <div class="preview">
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>登録番号</th>
+                  <th>区分</th>
+                  <th>支払方法</th>
+                  <th>数量</th>
+                  <th>単価</th>
+                  <th>件名</th>
+                  <th>仕様</th>
+                  <th>金額ソース</th>
+                  <th>金額</th>
+                  <th>納期</th>
+                </tr>
+              </thead>
+              <tbody id="previewBody">
+                <tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted);">プレビューボタンを押すと明細が表示されます</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- サンプル表示 -->
+        <div class="panel" style="margin-top:16px;">
+          <h3>📄 サンプル（参考）</h3>
+          <div class="sample" id="sampleText" style="font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
+    // DOM要素
     const csvFile = document.getElementById("csvFile");
     const xlsxFile = document.getElementById("xlsxFile");
     const csvText = document.getElementById("csvText");
-    const status = document.getElementById("status");
+    const statusBar = document.getElementById("statusBar");
     const previewBody = document.getElementById("previewBody");
+    const previewCount = document.getElementById("previewCount");
     const generateDocuments = document.getElementById("generateDocuments");
     const sampleText = document.getElementById("sampleText");
     const mode = document.getElementById("mode");
@@ -6413,23 +6716,34 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
     const mappingModeNote = document.getElementById("mappingModeNote");
     const sourceFileName = document.getElementById("sourceFileName");
     const projectTitle = document.getElementById("projectTitle");
-    const planningSummary = document.getElementById("planningSummary");
-    const vendorAlert = document.getElementById("vendorAlert");
-    const warningBox = document.getElementById("warningBox");
+    const sheetRow = document.getElementById("sheetRow");
     const sheetName = document.getElementById("sheetName");
+
     const sampleMap = {
       planning: {
-        note: "企画発注書モードでは、カードイラスト進行表を前提に カード名 / 完成 / B〆 / 作家名 などの列名を読み替えます。",
+        note: "企画発注書モード: カード名 / 完成 / B〆 / 作家名 などの列名を読み替えます。",
         fileName: "OP_2025年11月分進行用.csv",
-        csv: "カードNo.,カード名,色,カード種類,キャラ備考,特徴,画角,イラスト指定,作家名,完成,B〆\\nA-001,炎の剣士,赤,ユニット,主人公,火炎・前衛,バストアップ,躍動感のある構図,山田花子,2026/04/15,2026/04/30\\nB-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らかい自然光,山田花子,2026/04/30,",
+        csv: "カードNo.,カード名,色,カード種類,キャラ備考,特徴,画角,イラスト指定,作家名,完成,B〆\nA-001,炎の剣士,赤,ユニット,主人公,火炎・前衛,バストアップ,躍動感のある構図,山田花子,2026/04/15,2026/04/30\nB-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らかい自然光,山田花子,2026/04/30,",
       },
       publishing_bulk: {
-        note: "出版一括発注書モードでは、書誌進行表を前提に 書名 / 初校締切 / 校了予定 / 発注金額 などの列名を読み替えます。",
+        note: "出版一括発注書モード: 書名 / 初校締切 / 校了予定 / 発注金額 などの列名を読み替えます。",
         fileName: "出版一括発注_2026年4月.csv",
-        csv: "ISBN,書名,巻数,判型,ページ数,作業内容,作家名,vendorID,初校締切,再校締切,校了予定,発注金額,備考\\n978000000001,空色文庫,上巻,A5,192,本文組版・装画,山田花子,VN-001,2026/04/15,2026/04/25,2026/04/30,120000,初版制作\\n978000000002,星巡り図鑑,単巻,B6,128,本文組版・図版調整,佐藤次郎,VN-002,2026/04/18,,2026/05/08,85000,重版対応含む",
+        csv: "ISBN,書名,巻数,判型,ページ数,作業内容,作家名,vendorID,初校締切,再校締切,校了予定,発注金額,備考\n978000000001,空色文庫,上巻,A5,192,本文組版・装画,山田花子,VN-001,2026/04/15,2026/04/25,2026/04/30,120000,初版制作",
       },
     };
     let workbookBase64 = "";
+
+    // フィールドグループの折りたたみ
+    function toggleFieldGroup(header) {
+      const group = header.closest(".field-group");
+      group.classList.toggle("collapsed");
+    }
+
+    function setStatus(message, type) {
+      statusBar.className = "status-bar" + (type ? " " + type : "");
+      const icons = { success: "✅", error: "❌", "": "ℹ️" };
+      statusBar.innerHTML = \`<span class="icon">\${icons[type || ""] || "⏳"}</span> \${escapeHtml(message)}\`;
+    }
 
     function updateProfilePresentation() {
       const selected = sampleMap[mappingProfileId.value] || sampleMap.planning;
@@ -6440,53 +6754,65 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
       }
     }
 
+    // ファイル読み込み（文字コード自動判定）
+    async function readCsvFileWithEncoding(file) {
+      const buffer = await file.arrayBuffer();
+      const utf8Text = new TextDecoder("utf-8").decode(buffer);
+      const shiftJisText = decodeWithEncoding(buffer, "shift_jis");
+      const utf8Score = scoreDecodedText(utf8Text);
+      const shiftJisScore = scoreDecodedText(shiftJisText);
+      if (shiftJisText && shiftJisScore < utf8Score) {
+        return { text: shiftJisText, encoding: "Shift_JIS" };
+      }
+      return { text: utf8Text, encoding: "UTF-8" };
+    }
+    function decodeWithEncoding(buffer, encoding) {
+      try { return new TextDecoder(encoding).decode(buffer); } catch { return ""; }
+    }
+    function scoreDecodedText(text) {
+      if (!text) return Number.MAX_SAFE_INTEGER;
+      return (text.match(/\uFFFD/g) || []).length * 10;
+    }
+
+    // CSVファイル読み込み
     csvFile.addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
-      csvText.value = await file.text();
+      const decoded = await readCsvFileWithEncoding(file);
+      csvText.value = decoded.text;
       sourceFileName.value = file.name;
-      status.textContent = "CSVファイルを読み込みました。";
+      setStatus("CSVファイルを読み込みました（" + decoded.encoding + "）");
     });
 
+    // Excelファイル読み込み
     xlsxFile.addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       sourceFileName.value = file.name;
       workbookBase64 = await toBase64(file);
-      status.textContent = "Excelファイルを読み込み、シート一覧を取得しています...";
-      const result = await postJson("/admin/api/orders/xlsx/sheets", {
-        fileBase64: workbookBase64,
-      });
+      setStatus("Excelファイルを読み込み中...");
+      const result = await postJson("/admin/api/orders/xlsx/sheets", { fileBase64: workbookBase64 });
       if (!result.ok) {
-        status.textContent = "Excel読込失敗: " + result.error;
+        setStatus("Excel読込失敗: " + result.error, "error");
         return;
       }
       sheetName.innerHTML = result.sheets.map((sheet, index) =>
-        "<option value='" + escapeHtml(sheet.name) + "'" + (index === 0 ? " selected" : "") + ">" +
-        escapeHtml(sheet.name) + " (" + sheet.rowCount + "行 / score " + sheet.score + ")</option>"
+        \`<option value="\${escapeHtml(sheet.name)}"\${index === 0 ? " selected" : ""}>\${escapeHtml(sheet.name)} (\${sheet.rowCount}行)</option>\`
       ).join("");
+      sheetRow.style.display = "block";
       if (result.sheets[0] && result.sheets[0].score >= 4) {
         mode.value = "planning";
       }
-      status.textContent = "Excelファイルを読み込みました。おすすめシートは '" + (result.sheets[0] ? result.sheets[0].name : "") + "' です。";
+      setStatus("Excelを読み込みました。シートを選択して「選択シートをCSV化」してください。", "success");
     });
 
     document.getElementById("extractXlsxBtn").addEventListener("click", async () => {
-      if (!workbookBase64) {
-        status.textContent = "先にExcelファイルを選択してください。";
-        return;
-      }
-      status.textContent = "選択シートをCSVへ変換しています...";
-      const result = await postJson("/admin/api/orders/xlsx/to-csv", {
-        fileBase64: workbookBase64,
-        sheetName: sheetName.value,
-      });
-      if (!result.ok) {
-        status.textContent = "Excel変換失敗: " + result.error;
-        return;
-      }
+      if (!workbookBase64) { setStatus("先にExcelファイルを選択してください。", "error"); return; }
+      setStatus("選択シートをCSVへ変換中...");
+      const result = await postJson("/admin/api/orders/xlsx/to-csv", { fileBase64: workbookBase64, sheetName: sheetName.value });
+      if (!result.ok) { setStatus("Excel変換失敗: " + result.error, "error"); return; }
       csvText.value = result.csvText;
-      status.textContent = "シート '" + result.sheetName + "' をCSV化しました。続けてプレビューできます。";
+      setStatus("シート「" + result.sheetName + "」をCSV化しました。", "success");
     });
 
     document.getElementById("sampleBtn").addEventListener("click", () => {
@@ -6494,20 +6820,18 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
       csvText.value = selected.csv;
       sourceFileName.value = selected.fileName;
       mode.value = "planning";
-      status.textContent = (mappingProfileId.value === "publishing_bulk" ? "出版一括発注書" : "企画発注書") + "向けサンプルCSVを入力しました。";
+      setStatus("サンプルCSVを挿入しました。");
     });
 
-    mappingProfileId.addEventListener("change", () => {
-      updateProfilePresentation();
-    });
+    mappingProfileId.addEventListener("change", updateProfilePresentation);
     updateProfilePresentation();
 
+    // プレビュー
     document.getElementById("previewBtn").addEventListener("click", async () => {
-      status.textContent = "プレビューを作成しています...";
-      previewBody.innerHTML = "";
-      planningSummary.style.display = "none";
-      vendorAlert.style.display = "none";
-      warningBox.style.display = "none";
+      setStatus("プレビューを作成中...");
+      previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--muted);">読み込み中...</td></tr>\`;
+      hideAlerts();
+
       const result = await postJson("/admin/api/orders/csv/preview", {
         csvText: csvText.value,
         mode: mode.value,
@@ -6519,80 +6843,64 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
         acceptMethod: document.getElementById("acceptMethod").value,
         acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
       });
+
       if (!result.ok) {
-        status.textContent = "プレビュー失敗: " + result.error;
-        previewBody.innerHTML = "<tr><td colspan='10'>プレビューに失敗しました。</td></tr>";
+        setStatus("プレビュー失敗: " + result.error, "error");
+        previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--danger);">プレビューに失敗しました</td></tr>\`;
         return;
       }
-      status.textContent = "プレビュー作成完了: " + result.count + "件";
-      previewBody.innerHTML = result.items.map((item) => \`
+
+      setStatus("プレビュー完了: " + result.count + " 件", "success");
+      previewCount.textContent = result.count + " 件";
+      previewCount.style.display = "inline-flex";
+
+      previewBody.innerHTML = (result.items || []).map((item) => \`
         <tr>
           <td>\${escapeHtml(item.no)}</td>
+          <td>\${escapeHtml(item.vendorCode || "")}</td>
           <td>\${escapeHtml(item.category || "")}</td>
           <td>\${escapeHtml(item.payMethod || "")}</td>
-          <td>\${escapeHtml(item.qty)}</td>
-          <td>\${escapeHtml(item.unitPrice || "")}</td>
+          <td style="text-align:right;">\${escapeHtml(item.qty)}</td>
+          <td style="text-align:right;">\${escapeHtml(item.unitPrice || "")}</td>
           <td>\${escapeHtml(item.desc)}</td>
-          <td>\${escapeHtml(item.spec || "")}</td>
-          <td>\${escapeHtml(item.amountSourceLabel || "")}</td>
-          <td>\${escapeHtml(item.amount)}</td>
+          <td style="max-width:200px;">\${escapeHtml(item.spec || "")}</td>
+          <td><span class="tag" style="font-size:11px;">\${escapeHtml(item.amountSourceLabel || "直接")}</span></td>
+          <td style="text-align:right;font-weight:600;">\${escapeHtml(item.amount)}</td>
           <td>\${escapeHtml(item.dueDate)}</td>
         </tr>
       \`).join("");
+
+      // 企画発注書サマリー
       if (result.mode === "planning" && result.planningContext) {
-        planningSummary.style.display = "block";
-        planningSummary.innerHTML = [
-          "<strong>" + escapeHtml(mappingProfileId.value === "publishing_bulk" ? "出版一括発注書" : "企画発注書") + "マッピング結果</strong>",
-          "案件タイトル: " + escapeHtml(result.planningContext.projectTitle || ""),
-          "Vendor数: " + escapeHtml((result.vendorStatuses || []).length),
-          "総明細数: " + escapeHtml(result.planningContext.rowCount || 0),
-          "初稿納期表示: " + escapeHtml(result.planningContext.firstDraftDeadlineLabel || ""),
-          "支払日表示: " + escapeHtml(result.planningContext.paymentDateLabel || ""),
-          "特約事項: " + escapeHtml(result.planningContext.specialTerms || ""),
-          "備考: " + escapeHtml(result.planningContext.remarks || "")
-        ].join("<br>");
-        if (result.vendorStatuses && result.vendorStatuses.length > 0) {
-          vendorAlert.style.display = "block";
-          vendorAlert.innerHTML = [
-            "<strong>Vendor確認</strong>",
-            ...result.vendorStatuses.map((vendorStatus) => {
-              const link = "/admin/masters?vendorCode=" + encodeURIComponent(vendorStatus.vendorCode || "") +
-                "&vendorName=" + encodeURIComponent(vendorStatus.lookupName || "");
-              const state = !vendorStatus.exists
-                ? "未登録"
-                : vendorStatus.nameMatchType === "exact"
-                  ? "作家名一致"
-                  : vendorStatus.nameMatchType === "alias"
-                    ? "aliases一致"
-                    : "作家名差分あり";
-              const action = !vendorStatus.exists
-                ? "<a class='link-button' href='" + link + "'>マスタ登録</a>"
-                : vendorStatus.nameMatchType === "mismatch"
-                  ? "<a class='link-button' href='" + link + "'>aliases確認</a>"
-                  : "";
-              return [
-                escapeHtml(vendorStatus.vendorCode || "") + " / " + escapeHtml(vendorStatus.vendorName || vendorStatus.lookupName || ""),
-                "状態: " + state + " / 明細 " + escapeHtml(vendorStatus.rowCount || 0) + "件",
-                action
-              ].filter(Boolean).join("<br>");
-            })
-          ].join("<br><br>");
-        }
-        if (result.warnings && result.warnings.length > 0) {
-          warningBox.style.display = "block";
-          warningBox.innerHTML = "<strong>取込前チェック</strong><br>" +
-            result.warnings.map((warning) => {
-              const label = warning.severity === "blocking" ? "[停止]" : "[注意]";
-              return "・" + label + " " + escapeHtml(warning.message);
-            }).join("<br>");
-        }
+        showPlanningSummary(result);
+      }
+      // Vendor確認
+      if (result.vendorStatuses && result.vendorStatuses.length > 0) {
+        showVendorAlert(result.vendorStatuses);
+      }
+      // 警告
+      if (result.warnings && result.warnings.length > 0) {
+        showWarnings(result.warnings);
       }
     });
 
+    // 取込実行
     document.getElementById("importBtn").addEventListener("click", async () => {
-      status.textContent = "取り込みを実行しています...";
+      const issueKeyVal = document.getElementById("issueKey").value.trim();
+      if (!issueKeyVal) {
+        setStatus("Backlog課題キーを入力してください。", "error");
+        return;
+      }
+      if (!csvText.value.trim()) {
+        setStatus("CSVを入力またはファイルを選択してください。", "error");
+        return;
+      }
+
+      setStatus("取り込みを実行中...");
+      document.getElementById("importResultPanel").style.display = "none";
+
       const result = await postJson("/admin/api/orders/csv/import", {
-        issueKey: document.getElementById("issueKey").value,
+        issueKey: issueKeyVal,
         csvText: csvText.value,
         generateDocuments: generateDocuments.checked,
         mode: mode.value,
@@ -6604,36 +6912,89 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
         acceptMethod: document.getElementById("acceptMethod").value,
         acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
       });
+
       if (!result.ok) {
         const warningText = result.warnings && result.warnings.length
-          ? "\\n" + result.warnings.map((warning) => "[" + (warning.severity === "blocking" ? "停止" : "注意") + "] " + warning.message).join("\\n")
+          ? " / " + result.warnings.map((w) => "[" + (w.severity === "blocking" ? "停止" : "注意") + "] " + w.message).join(" / ")
           : "";
-        status.textContent = "取込失敗: " + result.error + warningText;
+        setStatus("取込失敗: " + result.error + warningText, "error");
+        if (result.warnings) showWarnings(result.warnings);
         return;
       }
-      status.textContent = "取込完了: " + result.issueKey + " / 明細 " + result.importedCount + " 件"
-        + (result.createdTrackingIssueCount ? " / 納品管理課題 " + result.createdTrackingIssueCount + " 件" : "")
-        + (result.generated ? " / 発注書生成あり" : "");
+
+      const resultMsg = [
+        "課題: " + result.issueKey,
+        "明細: " + result.importedCount + " 件",
+        result.createdTrackingIssueCount ? "納品管理課題: " + result.createdTrackingIssueCount + " 件" : "",
+        result.generated ? "発注書生成: 完了" : "",
+      ].filter(Boolean).join("  |  ");
+
+      setStatus("取込完了！", "success");
+      document.getElementById("importResultPanel").style.display = "block";
+      document.getElementById("importResultContent").innerHTML = \`<strong>\${escapeHtml(resultMsg)}</strong>\`;
     });
 
+    // Vendor仮登録
     document.getElementById("bootstrapVendorsBtn").addEventListener("click", async () => {
-      status.textContent = "Vendor仮登録を実行しています...";
+      setStatus("Vendor仮登録を実行中...");
       const result = await postJson("/admin/api/masters/vendor/bootstrap", {
         csvText: csvText.value,
         mappingProfileId: mappingProfileId.value,
         sourceFileName: sourceFileName.value,
-        projectTitle: projectTitle.value,
-        specialTerms: document.getElementById("specialTerms").value,
-        remarks: document.getElementById("remarks").value,
-        acceptMethod: document.getElementById("acceptMethod").value,
-        acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
       });
-      if (!result.ok) {
-        status.textContent = "Vendor仮登録失敗: " + result.error;
-        return;
-      }
-      status.textContent = "Vendor仮登録完了: " + result.count + " 件";
+      if (!result.ok) { setStatus("Vendor仮登録失敗: " + result.error, "error"); return; }
+      setStatus("Vendor仮登録完了: " + result.count + " 件", "success");
     });
+
+    // ヘルパー関数
+    function hideAlerts() {
+      document.getElementById("vendorAlert").style.display = "none";
+      document.getElementById("warningPanel").style.display = "none";
+      document.getElementById("planningSummaryPanel").style.display = "none";
+      previewCount.style.display = "none";
+    }
+
+    function showPlanningSummary(result) {
+      const pc = result.planningContext;
+      document.getElementById("planningSummaryPanel").style.display = "block";
+      document.getElementById("planningSummaryContent").innerHTML = [
+        "<div class='summary-box' style='margin-bottom:0;'>",
+        "<strong>案件タイトル:</strong> " + escapeHtml(pc.projectTitle || ""),
+        "<br><strong>Vendor数:</strong> " + escapeHtml(String((result.vendorStatuses || []).length)),
+        "<br><strong>総明細数:</strong> " + escapeHtml(String(pc.rowCount || 0)),
+        pc.firstDraftDeadlineLabel ? "<br><strong>初稿納期:</strong> " + escapeHtml(pc.firstDraftDeadlineLabel) : "",
+        pc.paymentDateLabel ? "<br><strong>支払日:</strong> " + escapeHtml(pc.paymentDateLabel) : "",
+        pc.specialTerms ? "<br><strong>特約事項:</strong> " + escapeHtml(pc.specialTerms) : "",
+        "</div>",
+      ].filter(Boolean).join("");
+    }
+
+    function showVendorAlert(vendorStatuses) {
+      document.getElementById("vendorAlert").style.display = "block";
+      document.getElementById("vendorAlertContent").innerHTML =
+        "<div class='table-wrap'><table><thead><tr><th>VendorID</th><th>CSVの作家名</th><th>登録状態</th><th>操作</th></tr></thead><tbody>" +
+        vendorStatuses.map((vs) => {
+          const stateClass = !vs.exists ? "vendor-err" : vs.nameMatchType === "exact" ? "vendor-ok" : vs.nameMatchType === "alias" ? "vendor-ok" : "vendor-warn";
+          const stateLabel = !vs.exists ? "❌ 未登録" : vs.nameMatchType === "exact" ? "✅ 一致" : vs.nameMatchType === "alias" ? "✅ alias一致" : "⚠️ 名前差分";
+          const link = "/admin/masters?vendorCode=" + encodeURIComponent(vs.vendorCode || "") + "&vendorName=" + encodeURIComponent(vs.lookupName || "");
+          return \`<tr>
+            <td><code>\${escapeHtml(vs.vendorCode || "")}</code></td>
+            <td>\${escapeHtml(vs.lookupName || vs.vendorName || "")}</td>
+            <td class="\${stateClass}">\${stateLabel}</td>
+            <td><a class="link-button" href="\${link}" style="font-size:11px;padding:4px 8px;">\${!vs.exists ? "登録" : "確認"}</a></td>
+          </tr>\`;
+        }).join("") +
+        "</tbody></table></div>";
+    }
+
+    function showWarnings(warnings) {
+      const blocking = warnings.filter((w) => w.severity === "blocking");
+      const warn = warnings.filter((w) => w.severity !== "blocking");
+      document.getElementById("warningPanel").style.display = "block";
+      document.getElementById("warningContent").innerHTML =
+        blocking.map((w) => \`<div class="warning-summary warning-stop">🛑 \${escapeHtml(w.message)}</div>\`).join("") +
+        warn.map((w) => \`<div class="warning-summary warning-warn">⚠️ \${escapeHtml(w.message)}</div>\`).join("");
+    }
 
     async function postJson(url, body) {
       const response = await fetch(url, {
@@ -6657,17 +7018,14 @@ B-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らか�
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[char]));
     }
   </script>
 </body>
 </html>`;
 }
+
 
 function buildMappingAdminHtml(): string {
   const settings = getPlanningImportSettings();
@@ -9317,493 +9675,485 @@ function buildAdminNav(_current: AdminNavKey): string {
     },
   ];
 
-  return `<nav class="nav-shell">${groups.map((group) => `
-    <section class="nav-group">
-      <div class="nav-group-label">${group.label}</div>
-      <div class="nav-group-title">${group.title}</div>
-      <div class="nav-group-items">
-        ${group.items.map((item) => {
-          const active = (item.activeKeys ?? [item.key]).includes(_current) ? " active" : "";
-          return `<a class="nav-link${active}" href="${item.href}">
-            <strong>${item.label}</strong>
-            <span>${item.description}</span>
-          </a>`;
-        }).join("")}
-      </div>
-    </section>
-  `).join("")}</nav>`;
+  const navItems = groups.flatMap((group) => group.items.map((item) => ({
+    ...item,
+    groupLabel: group.label,
+    groupTitle: group.title,
+  })));
+
+  return `<nav class="sidebar-nav">
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-icon">⚖️</span>
+      <span class="sidebar-logo-text">LegalBridge</span>
+    </div>
+    <div class="sidebar-nav-items">
+      ${groups.map((group) => `
+        <div class="sidebar-group">
+          <div class="sidebar-group-label">${group.label}</div>
+          ${group.items.map((item) => {
+            const active = (item.activeKeys ?? [item.key]).includes(_current) ? " sidebar-active" : "";
+            return `<a class="sidebar-link${active}" href="${item.href}" title="${item.description}">
+              <span class="sidebar-link-icon">${getSidebarIcon(item.key)}</span>
+              <span class="sidebar-link-text">${item.label}</span>
+            </a>`;
+          }).join("")}
+        </div>
+      `).join("")}
+    </div>
+  </nav>`;
+}
+
+function getSidebarIcon(key: string): string {
+  const icons: Record<string, string> = {
+    home: "🏠",
+    orders: "📋",
+    "contracts-hub": "📝",
+    "delivery-hub": "📦",
+    "royalty-hub": "💰",
+    "settings-hub": "⚙️",
+    tools: "🔧",
+  };
+  return icons[key] ?? "📄";
 }
 
 function sharedAdminCss(): string {
   return `
+    /* =====================================================
+       LegalBridge Admin UI - Redesigned CSS
+       ===================================================== */
     :root {
-      --bg: #f7f3ee;
-      --panel: rgba(255, 251, 246, 0.9);
-      --panel-strong: #fffdfa;
-      --line: rgba(141, 111, 84, 0.16);
-      --line-strong: rgba(141, 111, 84, 0.28);
-      --ink: #2a241f;
-      --muted: #75695d;
+      --bg: #f4f6f9;
+      --sidebar-bg: #1e2433;
+      --sidebar-width: 220px;
+      --sidebar-text: rgba(255,255,255,0.72);
+      --sidebar-text-active: #fff;
+      --sidebar-accent: #4f9b90;
+      --panel: #ffffff;
+      --panel-border: #e2e8f0;
+      --ink: #1a202c;
+      --muted: #718096;
       --accent: #2f7f73;
-      --accent-soft: rgba(47, 127, 115, 0.12);
+      --accent-hover: #236b61;
+      --accent-soft: rgba(47,127,115,0.1);
       --accent-warm: #d98f70;
-      --shadow: 0 18px 40px rgba(76, 57, 42, 0.08);
-      --radius-lg: 24px;
-      --radius-md: 18px;
-      --radius-sm: 14px;
+      --danger: #e53e3e;
+      --warning: #dd6b20;
+      --success: #38a169;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(217,143,112,0.12), transparent 24%),
-        radial-gradient(circle at top right, rgba(47,127,115,0.12), transparent 28%),
-        linear-gradient(180deg, #fcfaf6 0%, var(--bg) 100%);
+      font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+      background: var(--bg);
       color: var(--ink);
+      font-size: 14px;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
     }
     a { color: inherit; }
-    .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 56px; }
-    .nav-shell {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
-    }
-    .nav-group {
-      background: rgba(255,255,255,0.64);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      padding: 14px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 10px 24px rgba(76, 57, 42, 0.04);
-    }
-    .nav-group-label {
-      font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 6px;
-      font-weight: 700;
-    }
-    .nav-group-title {
-      font-size: 17px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-    .nav-group-items {
-      display: grid;
-      gap: 8px;
-    }
-    .nav-link, .link-button {
-      display:flex;
+
+    /* ===== Sidebar Navigation ===== */
+    .sidebar-nav {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      min-height: 100vh;
+      display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding:12px 14px;
-      color:var(--ink);
-      text-decoration:none;
-      border:1px solid transparent;
-      background: rgba(255, 250, 244, 0.8);
-      border-radius: 14px;
-      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
     }
-    .nav-link strong { font-size: 14px; }
-    .nav-link span {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .nav-link:hover, .link-button:hover {
-      transform: translateY(-1px);
-      border-color: var(--line-strong);
-      box-shadow: 0 10px 24px rgba(76, 57, 42, 0.06);
-    }
-    .nav-link.active {
-      background: linear-gradient(135deg, var(--accent), #5e9f95);
-      color:#fff;
-      border-color: transparent;
-      box-shadow: 0 14px 30px rgba(47, 127, 115, 0.22);
-    }
-    .nav-link.active span { color: rgba(255,255,255,0.82); }
-    .active-panel-link {
-      border-color: rgba(47, 127, 115, 0.38);
-      box-shadow: inset 0 0 0 1px rgba(47, 127, 115, 0.18);
-      background: linear-gradient(180deg, rgba(47,127,115,0.12), rgba(255,255,255,0.76));
-    }
-    .hero { margin-bottom: 24px; }
-    .hero-panel {
-      background: linear-gradient(135deg, rgba(255,253,250,0.95), rgba(247, 253, 251, 0.88));
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      box-shadow: var(--shadow);
-    }
-    .hero-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
-      gap: 22px;
-      align-items: start;
-    }
-    .hero-side {
-      padding: 18px;
-      background: rgba(255,255,255,0.72);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-    }
-    .hero-kicker {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 10px;
-    }
-    .hero-actions {
+    .sidebar-logo {
       display: flex;
-      gap: 12px;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      margin-top: 18px;
-    }
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-    .tag-row {
-      display: flex;
       gap: 10px;
-      flex-wrap: wrap;
+      padding: 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      font-weight: 700;
+      font-size: 16px;
     }
-    .tag {
+    .sidebar-logo-icon { font-size: 20px; }
+    .sidebar-nav-items {
+      flex: 1;
+      padding: 12px 0;
+      overflow-y: auto;
+    }
+    .sidebar-group {
+      padding: 4px 0;
+      margin-bottom: 4px;
+    }
+    .sidebar-group-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.36);
+      padding: 8px 16px 4px;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      border-radius: 0;
+      transition: background 0.15s ease, color 0.15s ease;
+      font-size: 13.5px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .sidebar-link:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+    .sidebar-link.sidebar-active {
+      background: var(--sidebar-accent);
+      color: white;
+      font-weight: 600;
+    }
+    .sidebar-link-icon { font-size: 16px; flex-shrink: 0; }
+    .sidebar-link-text { overflow: hidden; text-overflow: ellipsis; }
+
+    /* ===== Main Content Area ===== */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      min-width: 0;
+      padding: 28px;
+      max-width: 1200px;
+    }
+    .wrap {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      min-width: 0;
+      padding: 28px;
+    }
+    .shell {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      min-width: 0;
+      padding: 28px;
+    }
+
+    /* ===== Page Header ===== */
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--ink);
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--ink);
+    }
+    .sub, .note { color: var(--muted); line-height: 1.7; }
+    .helper { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
+    p.sub { margin-bottom: 20px; }
+
+    /* ===== Category Switch (Breadcrumb-style tabs) ===== */
+    .category-switch {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding: 4px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+    }
+    .category-switch-link {
       display: inline-flex;
       align-items: center;
-      padding: 8px 12px;
-      border-radius: 999px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .category-switch-link:hover {
       background: var(--accent-soft);
       color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
     }
-    .flow-list {
-      display: grid;
-      gap: 10px;
+    .category-switch-link.active-panel-link {
+      background: var(--accent);
+      color: white;
     }
-    .flow-step {
-      display: grid;
-      gap: 4px;
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: rgba(255, 248, 240, 0.86);
-      border: 1px solid var(--line);
-    }
-    .flow-step strong {
-      font-size: 14px;
-    }
-    .flow-step span {
-      color: var(--muted);
-      line-height: 1.55;
+
+    /* ===== Status ===== */
+    .status {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
       font-size: 13px;
-    }
-    .quick-guide {
-      margin-bottom: 22px;
-    }
-    .dashboard-detail-grid {
-      grid-template-columns: 1fr 1.15fr;
-      margin-bottom: 22px;
-    }
-    .quick-grid {
-      display: grid;
-      gap: 14px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-    .quick-card {
-      display: grid;
-      gap: 8px;
-      padding: 18px;
-      border-radius: 18px;
-      border: 1px solid var(--line);
-      text-decoration: none;
-      background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(252,246,239,0.86));
-      box-shadow: 0 10px 24px rgba(76, 57, 42, 0.05);
-    }
-    .quick-card strong { font-size: 15px; }
-    .quick-card span { color: var(--muted); line-height: 1.6; }
-    .section-stack { display: grid; gap: 22px; }
-    .timeline-list {
-      display: grid;
-      gap: 12px;
-    }
-    .timeline-item {
-      display: grid;
-      gap: 8px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255,255,255,0.76);
-    }
-    .timeline-item strong a {
-      color: inherit;
-      text-decoration: none;
-    }
-    .timeline-item strong a:hover {
-      text-decoration: underline;
-    }
-    .timeline-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
+      min-height: 20px;
+      white-space: pre-wrap;
       color: var(--muted);
-      font-size: 12px;
     }
-    .timeline-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(217, 143, 112, 0.14);
-      color: #a85b39;
-      font-weight: 700;
+    .status.success {
+      background: rgba(56, 161, 105, 0.1);
+      color: #276749;
+      border: 1px solid rgba(56, 161, 105, 0.2);
     }
-    .runtime-alert {
-      background: rgba(180, 35, 24, 0.12);
-      color: #7a271a;
+    .status.error {
+      background: rgba(229, 62, 62, 0.08);
+      color: #c53030;
+      border: 1px solid rgba(229, 62, 62, 0.18);
     }
-    .runtime-summary {
-      margin-bottom: 16px;
+
+    /* ===== Grid ===== */
+    .grid { display: grid; gap: 20px; align-items: start; }
+    .two-col { grid-template-columns: 1fr 1fr; }
+    .dashboard-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+    /* ===== Panel / Card ===== */
+    .panel, .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
     }
-    .runtime-card {
-      min-height: 160px;
-    }
-    .timeline-summary {
-      line-height: 1.6;
-    }
-    .timeline-helper {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .timeline-helper span {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(47, 127, 115, 0.08);
-    }
-    .status-chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .status-chip {
-      min-width: 120px;
-      display: grid;
-      gap: 4px;
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.78);
-      border: 1px solid var(--line);
-    }
-    .status-chip strong {
-      font-size: 14px;
-    }
-    .status-chip span {
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .table-wrap {
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255,255,255,0.82);
-    }
-    .empty-state {
-      padding: 18px;
-      border: 1px dashed var(--line-strong);
-      border-radius: 18px;
-      color: var(--muted);
-      background: rgba(255, 248, 240, 0.72);
-      line-height: 1.7;
-    }
+    .panel + .panel, .card + .card { margin-top: 20px; }
     .section-heading {
       display: flex;
-      align-items: start;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       flex-wrap: wrap;
     }
     .section-copy {
       margin: 0;
-      max-width: 520px;
       color: var(--muted);
       line-height: 1.7;
-    }
-    h1 { margin: 0 0 10px; font-size: clamp(30px, 4vw, 42px); letter-spacing: 0.02em; line-height: 1.15; }
-    h2 { margin: 0 0 14px; font-size: 22px; letter-spacing: 0.01em; }
-    .sub, .note, .status { color: var(--muted); line-height: 1.7; }
-    .status { margin-top: 14px; min-height: 24px; white-space: pre-wrap; }
-    .grid { display: grid; gap: 20px; align-items: start; }
-    .two-col { grid-template-columns: 1.2fr 0.8fr; }
-    .dashboard-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      padding: 22px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .dashboard-card {
-      display: grid;
-      gap: 10px;
-      padding: 20px;
-      color: var(--ink);
-      text-decoration: none;
-      background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(252,245,237,0.9));
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      box-shadow: 0 10px 24px rgba(76, 57, 42, 0.05);
-      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-    }
-    .card-topline {
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-    .dashboard-card strong { font-size: 18px; }
-    .dashboard-card span { color: var(--muted); line-height: 1.6; }
-    .card-link {
-      margin-top: 6px;
-      color: var(--accent);
       font-size: 13px;
-      font-weight: 700;
     }
-    .inline-action {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 10px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      text-decoration: none;
+
+    /* ===== Form Elements ===== */
+    .row { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-weight: 600;
       font-size: 13px;
-      font-weight: 700;
-      color: white;
-      background: linear-gradient(135deg, var(--accent), #4f9b90);
-      box-shadow: 0 10px 22px rgba(47, 127, 115, 0.18);
-      width: fit-content;
+      margin-bottom: 5px;
+      color: #4a5568;
     }
-    .inline-action:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 14px 28px rgba(47, 127, 115, 0.24);
-    }
-    .dashboard-card:hover {
-      border-color: rgba(47, 127, 115, 0.32);
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(76, 57, 42, 0.08);
-    }
-    .row { margin-bottom: 14px; }
-    label { display: block; font-weight: 700; margin-bottom: 6px; }
-    input[type="text"], input[type="file"], textarea, select {
+    input[type="text"],
+    input[type="email"],
+    input[type="date"],
+    input[type="file"],
+    textarea,
+    select {
       width: 100%;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.92);
-      padding: 12px 14px;
+      padding: 9px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius-sm);
       font: inherit;
-      border-radius: 14px;
+      font-size: 13.5px;
+      background: #fff;
+      color: var(--ink);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      outline: none;
     }
-    textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
-    .actions, .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="date"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(47,127,115,0.1);
+    }
+    textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+    .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
     .inline-check {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 0;
       padding: 8px 12px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--panel-border);
       border-radius: 999px;
-      background: rgba(255,255,255,0.8);
-      font-weight: 600;
-    }
-    .inline-check input[type="checkbox"] {
-      margin: 0;
-    }
-    button {
-      border: 0;
-      padding: 11px 18px;
-      font: inherit;
+      background: var(--panel);
+      font-size: 13px;
       cursor: pointer;
+    }
+    .inline-check input[type="checkbox"] { margin: 0; accent-color: var(--accent); }
+
+    /* ===== Buttons ===== */
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 16px; }
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      font: inherit;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
       color: white;
-      background: linear-gradient(135deg, var(--accent), #4f9b90);
-      border-radius: 999px;
-      box-shadow: 0 10px 22px rgba(47, 127, 115, 0.18);
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      box-shadow: 0 2px 6px rgba(47,127,115,0.22);
     }
+    button:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(47,127,115,0.28);
+    }
+    button:active { transform: translateY(0); }
     button.ghost {
-      background: linear-gradient(135deg, #6f645b, #4f463f);
-      box-shadow: 0 10px 22px rgba(42, 36, 31, 0.14);
+      background: #f1f5f9;
+      color: #4a5568;
+      box-shadow: none;
+      border: 1px solid #e2e8f0;
     }
+    button.ghost:hover {
+      background: #e2e8f0;
+      transform: translateY(-1px);
+    }
+    button.danger {
+      background: var(--danger);
+      box-shadow: 0 2px 6px rgba(229,62,62,0.22);
+    }
+    button.danger:hover { background: #c53030; }
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(47,127,115,0.2);
+      transition: all 0.15s ease;
+    }
+    .link-button:hover {
+      background: rgba(47,127,115,0.18);
+      transform: translateY(-1px);
+    }
+    .inline-action {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+    }
+
+    /* ===== Table ===== */
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #f0f4f8;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      font-weight: 600;
+      font-size: 12px;
+      color: #64748b;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    tbody tr:hover { background: #f8fafc; }
+    tbody tr:last-child td { border-bottom: none; }
+    td input[type="text"] { min-width: 100px; padding: 6px 10px; }
+
+    /* ===== Preview ===== */
     .preview {
       overflow: auto;
-      max-height: 520px;
-      border: 1px solid var(--line);
-      background: #fff;
-      border-radius: 18px;
+      max-height: 480px;
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      background: white;
     }
+
+    /* ===== Summary / Sample boxes ===== */
     .sample, .summary-box {
-      padding: 12px;
-      background: rgba(251, 245, 236, 0.88);
-      border: 1px dashed var(--line);
+      padding: 14px 16px;
+      background: #fafafa;
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
       font-size: 13px;
       white-space: pre-wrap;
-      border-radius: 16px;
+      line-height: 1.6;
+      color: var(--muted);
     }
+    .summary-box { white-space: normal; color: var(--ink); }
+
+    /* ===== Warning / Alert boxes ===== */
     .warning-summary, .warning-line {
-      padding: 8px 10px;
+      padding: 10px 14px;
       margin-top: 8px;
-      border-left: 4px solid var(--line);
-      background: #fffaf2;
-      border-radius: 0 14px 14px 0;
+      border-left: 3px solid #e2e8f0;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      background: #fafafa;
     }
-    .warning-summary {
-      font-weight: 700;
-    }
+    .warning-summary { font-weight: 700; }
     .warning-stop {
-      border-left-color: #b42318;
-      background: #fef3f2;
-      color: #7a271a;
+      border-left-color: var(--danger);
+      background: #fff5f5;
+      color: #c53030;
     }
     .warning-warn {
-      border-left-color: #b54708;
-      background: #fffaeb;
-      color: #7a2e0e;
+      border-left-color: var(--warning);
+      background: #fffaf0;
+      color: #9c4221;
     }
     .preflight-ready {
-      border-left-color: #2f7f73;
-      background: #ecfdf3;
-      color: #166534;
+      border-left-color: var(--success);
+      background: #f0fff4;
+      color: #276749;
     }
+
+    /* ===== Preflight ===== */
     .preflight-grid {
       display: grid;
       gap: 12px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       margin-top: 14px;
     }
-    .preflight-step {
-      display: grid;
-      gap: 10px;
-    }
+    .preflight-step { display: grid; gap: 8px; }
     .preflight-head {
       display: flex;
       align-items: center;
@@ -9814,75 +10164,249 @@ function sharedAdminCss(): string {
     .preflight-badge {
       display: inline-flex;
       align-items: center;
-      padding: 6px 10px;
+      padding: 4px 10px;
       border-radius: 999px;
-      border-left-width: 0;
-      margin-top: 0;
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
     }
-    .chip-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+
+    /* ===== Chips ===== */
+    .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .chip {
-      border:1px solid var(--line);
-      background:#fff;
-      padding:6px 10px;
-      cursor:pointer;
-      font:inherit;
-      color:var(--ink);
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      padding: 5px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      color: var(--ink);
       border-radius: 999px;
+      transition: all 0.15s ease;
     }
+    .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
     .filter-chip {
-      border:1px solid var(--line);
-      background:#fff;
-      padding:7px 12px;
-      cursor:pointer;
-      font:inherit;
-      color:var(--ink);
-      border-radius:999px;
-      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      padding: 7px 14px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      color: var(--muted);
+      border-radius: 999px;
+      transition: all 0.15s ease;
     }
-    .filter-chip:hover {
-      transform: translateY(-1px);
-      border-color: var(--line-strong);
+    .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .active-filter-chip { background: var(--accent); color: white; border-color: var(--accent); }
+    .bulk-focus-row { background: var(--accent-soft) !important; }
+
+    /* ===== Tags ===== */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
     }
-    .active-filter-chip {
-      background: linear-gradient(135deg, var(--accent), #5e9f95);
-      color:#fff;
-      border-color: transparent;
+
+    /* ===== Dashboard ===== */
+    .dashboard-card {
+      display: block;
+      padding: 18px;
+      color: var(--ink);
+      text-decoration: none;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s ease;
     }
-    .bulk-focus-row {
-      background: rgba(47, 127, 115, 0.08);
-      box-shadow: inset 0 0 0 1px rgba(47, 127, 115, 0.18);
+    .dashboard-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
     }
-    .helper { font-size: 13px; color: var(--muted); line-height: 1.6; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td {
-      border-bottom: 1px solid #eee1cf;
-      padding: 8px 10px;
-      text-align: left;
-      vertical-align: top;
+    .card-topline {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
     }
-    td input[type="text"] {
-      min-width: 120px;
-      padding: 8px 10px;
+    .dashboard-card strong { font-size: 16px; display: block; margin-bottom: 6px; }
+    .dashboard-card span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .card-link { margin-top: 10px; color: var(--accent); font-size: 13px; font-weight: 600; display: block; }
+
+    /* ===== Timeline ===== */
+    .timeline-list { display: grid; gap: 10px; }
+    .timeline-item {
+      padding: 14px 16px;
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      background: var(--panel);
     }
-    th { position: sticky; top: 0; background: #f5ede1; }
-    @media (max-width: 900px) {
+    .timeline-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .timeline-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(217,143,112,0.12);
+      color: #a85b39;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .timeline-summary { line-height: 1.5; }
+    .timeline-helper { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .timeline-helper span {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+    }
+    .timeline-item strong a { color: inherit; text-decoration: none; }
+    .timeline-item strong a:hover { text-decoration: underline; }
+
+    /* ===== Status Chips Row ===== */
+    .status-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .status-chip {
+      min-width: 100px;
+      display: grid;
+      gap: 2px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+    }
+    .status-chip strong { font-size: 13px; }
+    .status-chip span { color: var(--muted); font-size: 11px; }
+
+    /* ===== Hero ===== */
+    .hero { margin-bottom: 24px; }
+    .hero-panel, .hero {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+    }
+    .hero-layout {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .hero-kicker { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .hero-side {
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+    }
+
+    /* ===== Quick Grid ===== */
+    .quick-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .quick-card {
+      display: grid;
+      gap: 6px;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--panel-border);
+      text-decoration: none;
+      background: var(--panel);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s ease;
+    }
+    .quick-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .quick-card strong { font-size: 14px; }
+    .quick-card span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    /* ===== Flow ===== */
+    .flow-list { display: grid; gap: 8px; }
+    .flow-step {
+      display: grid;
+      gap: 3px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: #f8fafc;
+      border: 1px solid var(--panel-border);
+    }
+    .flow-step strong { font-size: 13px; }
+    .flow-step span { color: var(--muted); font-size: 12px; }
+
+    /* ===== Tag Row ===== */
+    .tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ===== Runtime ===== */
+    .runtime-alert { background: rgba(229,62,62,0.08); color: #c53030; }
+    .runtime-summary { margin-bottom: 14px; }
+
+    /* ===== Section Stack ===== */
+    .section-stack { display: grid; gap: 20px; }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      padding: 24px;
+      border: 1.5px dashed var(--panel-border);
+      border-radius: var(--radius-lg);
+      color: var(--muted);
+      background: #fafafa;
+      text-align: center;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 960px) {
+      :root { --sidebar-width: 64px; }
+      .sidebar-logo-text { display: none; }
+      .sidebar-group-label { display: none; }
+      .sidebar-link-text { display: none; }
+      .sidebar-link { padding: 12px; justify-content: center; }
       .hero-layout { grid-template-columns: 1fr; }
-      .dashboard-detail-grid { grid-template-columns: 1fr; }
       .two-col { grid-template-columns: 1fr; }
-      textarea#csvText { min-height: 260px; }
+      .dashboard-detail-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
-      .wrap { padding-inline: 16px; }
-      .hero-panel, .panel { padding: 18px; border-radius: 20px; }
-      .nav-shell { grid-template-columns: 1fr; }
-      .section-heading { margin-bottom: 14px; }
-      .hero-actions { align-items: stretch; }
+      .wrap, .shell { padding: 16px; }
+      .panel, .card { padding: 16px; }
+      textarea#csvText { min-height: 200px; }
     }
   `;
 }
+
 
 function formatAdminDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);

@@ -257,15 +257,13 @@ void (async () => {
       },
     });
   } catch (e) {
-    console.error("❌ DB接続失敗:", e);
-    console.error("   PostgreSQLが起動しているか確認してください。");
-    console.error("   ローカル起動: brew services start postgresql@15");
+    console.warn("⚠️ DB接続失敗（UI確認モードで継続）:", e instanceof Error ? e.message : String(e));
     updateLocalComponentStatus("db", {
       severity: "error",
       detail: e instanceof Error ? e.message : String(e),
       error: true,
     });
-    process.exit(1);
+    // DB未接続でも Admin UI は起動する（UI確認・CSV機能のデモ用）
   }
 
   const port = await resolvePort();
