@@ -5,6 +5,8 @@ export interface PlanningImportSettings {
   version: number;
   projectTitleSource: "filename" | "manual";
   projectTitleManualValue: string;
+  requesterSlackUserIdColumn: string;
+  orderDateColumn: string;
   vendorLookupColumn: string;
   vendorCodeColumn: string;
   itemNameColumn: string;
@@ -13,6 +15,7 @@ export interface PlanningImportSettings {
   finalDeadlineColumn: string;
   quantityColumn: string;
   unitPriceColumn: string;
+  paymentDateColumn: string;
   amountColumn: string;
   amountFallbackColumn: string;
   detailColumns: string[];
@@ -55,6 +58,8 @@ const DEFAULT_SETTINGS: PlanningImportSettings = {
   version: 1,
   projectTitleSource: "filename",
   projectTitleManualValue: "",
+  requesterSlackUserIdColumn: "",
+  orderDateColumn: "",
   vendorLookupColumn: "作家名",
   vendorCodeColumn: "vendorID",
   itemNameColumn: "カード名",
@@ -63,6 +68,7 @@ const DEFAULT_SETTINGS: PlanningImportSettings = {
   finalDeadlineColumn: "B〆",
   quantityColumn: "",
   unitPriceColumn: "",
+  paymentDateColumn: "",
   amountColumn: "管理費込み",
   amountFallbackColumn: "原稿料",
   detailColumns: [
@@ -112,21 +118,22 @@ function buildDefaultProfiles(): PlanningImportProfile[] {
         ...DEFAULT_SETTINGS,
         projectTitleSource: "manual",
         projectTitleManualValue: "出版一括発注書",
-        vendorLookupColumn: "作家名",
-        vendorCodeColumn: "vendorID",
-        itemNameColumn: "書名",
+        requesterSlackUserIdColumn: "担当者ID",
+        orderDateColumn: "発注日",
+        vendorLookupColumn: "支払先（ペンネーム）",
+        vendorCodeColumn: "コード",
+        itemNameColumn: "書籍名",
         completionDateColumn: "初校締切",
         completionDateFallbackColumn: "再校締切",
         finalDeadlineColumn: "校了予定",
-        amountColumn: "発注金額",
+        quantityColumn: "数量",
+        unitPriceColumn: "単価（税込）",
+        paymentDateColumn: "支払日",
+        amountColumn: "発注金額（税別）",
         amountFallbackColumn: "原稿料",
         detailColumns: [
-          "ISBN",
-          "書名",
-          "巻数",
-          "判型",
-          "ページ数",
-          "作業内容",
+          "業務概要",
+          "業務詳細（仕様）",
           "備考",
         ],
         constants: {

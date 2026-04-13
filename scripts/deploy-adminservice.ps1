@@ -3,11 +3,11 @@ param(
   [string]$ProjectId,
 
   [string]$Region = "asia-northeast1",
-  [string]$ServiceName = "legalbridge-slack-gateway",
-  [string]$ImageName = "legalbridge-slack-gateway",
+  [string]$ServiceName = "legalbridge-admin-ui",
+  [string]$ImageName = "legalbridge-admin-ui",
   [string]$RepositoryName = "legalbridge",
-  [string]$EnvFile = "cloudrun.gateway.env.yaml",
-  [string]$SecretFile = "cloudrun.gateway.secrets.yaml",
+  [string]$EnvFile = "cloudrun.admin.env.yaml",
+  [string]$SecretFile = "cloudrun.admin.secrets.yaml",
   [int]$MaxInstances = 3,
   [string]$ServiceAccountEmail = ""
 )
@@ -18,7 +18,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $envFilePath = Join-Path $repoRoot $EnvFile
 $secretFilePath = Join-Path $repoRoot $SecretFile
-$dockerFilePath = Join-Path $repoRoot "Dockerfile.cloudrun"
+$dockerFilePath = Join-Path $repoRoot "Dockerfile.adminrun"
 $dockerBuildPath = Join-Path $repoRoot "Dockerfile"
 
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
@@ -34,7 +34,7 @@ if (-not (Test-Path $secretFilePath)) {
 }
 
 if (-not (Test-Path $dockerFilePath)) {
-  throw "Dockerfile.cloudrun not found: $dockerFilePath"
+  throw "Dockerfile.adminrun not found: $dockerFilePath"
 }
 
 if ($MaxInstances -lt 1) {
@@ -107,6 +107,15 @@ function Ensure-SecretVersion {
   }
 }
 
+function Should-KeepExistingSecret {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$SecretValue
+  )
+
+  return $SecretValue -eq "__KEEP_EXISTING_SECRET__"
+}
+
 function Build-SecretBindingArg {
   param(
     [Parameter(Mandatory = $true)]
@@ -142,11 +151,17 @@ try {
     $mountedSecrets["/secrets/gws-service-account.json"] = "GOOGLE_SERVICE_ACCOUNT_KEY_JSON"
     $driveServiceAccountJson = [string]$secretValues["GOOGLE_SERVICE_ACCOUNT_KEY_JSON"]
     $secretValues.Remove("GOOGLE_SERVICE_ACCOUNT_KEY_JSON")
-    Ensure-SecretVersion -ProjectId $ProjectId -SecretName "GOOGLE_SERVICE_ACCOUNT_KEY_JSON" -SecretValue $driveServiceAccountJson
+    if (-not (Should-KeepExistingSecret -SecretValue $driveServiceAccountJson)) {
+      Ensure-SecretVersion -ProjectId $ProjectId -SecretName "GOOGLE_SERVICE_ACCOUNT_KEY_JSON" -SecretValue $driveServiceAccountJson
+    }
   }
 
   foreach ($secretName in $secretValues.Keys) {
-    Ensure-SecretVersion -ProjectId $ProjectId -SecretName $secretName -SecretValue ([string]$secretValues[$secretName])
+    $secretValue = [string]$secretValues[$secretName]
+    if (Should-KeepExistingSecret -SecretValue $secretValue) {
+      continue
+    }
+    Ensure-SecretVersion -ProjectId $ProjectId -SecretName $secretName -SecretValue $secretValue
   }
 
   $secretBindings = Build-SecretBindingArg -Secrets $secretValues -MountedSecrets $mountedSecrets

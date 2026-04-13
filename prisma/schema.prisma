@@ -271,6 +271,22 @@ model BacklogSyncState {
   @@index([lastBacklogUpdatedAt])
 }
 
+model BacklogSyncRun {
+  id             String   @id @default(cuid())
+  triggerSource  String
+  status         String
+  issueCount     Int      @default(0)
+  changedCount   Int      @default(0)
+  processedCount Int      @default(0)
+  failedCount    Int      @default(0)
+  bootstrapped   Boolean  @default(false)
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+}
+
 // ================================================================
 // 課題ワークフロー状態
 // 文書生成・承認・押印・締結の進行管理をDBで保持する

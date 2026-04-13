@@ -214,14 +214,18 @@ function parsePlanningOrderCsv(csvText: string, options: ParseOrderCsvOptions): 
   const groupMap = new Map<string, {
     vendorCode: string;
     vendorLookupValue?: string;
+    requesterSlackUserId?: string;
     completionDates: string[];
     finalDeadlineValues: string[];
+    orderDateValues: string[];
+    paymentDateValues: string[];
     rowCount: number;
   }>();
 
   const items = rows.map((row, index) => {
     const vendorCode = getValueByHeader(row, settings.vendorCodeColumn);
     const vendorLookupValue = getValueByHeader(row, settings.vendorLookupColumn);
+    const requesterSlackUserId = getValueByHeader(row, settings.requesterSlackUserIdColumn) || undefined;
     if (!vendorCode && settings.vendorCodeColumn) {
       throw new Error(`CSV ${index + 2}行目: ${settings.vendorCodeColumn} が空です。vendorID を入れてください。`);
     }
@@ -240,15 +244,38 @@ function parsePlanningOrderCsv(csvText: string, options: ParseOrderCsvOptions): 
       throw new Error(`CSV ${index + 2}行目: ${settings.completionDateColumn} / ${settings.completionDateFallbackColumn} が空か日付形式ではありません`);
     }
 
+    const orderDateRaw = getValueByHeader(row, settings.orderDateColumn);
+    const orderDate = orderDateRaw ? normalizeDate(orderDateRaw) : "";
+    if (orderDateRaw && !orderDate) {
+      throw new Error(`CSV ${index + 2}行目: ${settings.orderDateColumn} が空か日付形式ではありません`);
+    }
+    const paymentDateRaw = getValueByHeader(row, settings.paymentDateColumn);
+    const paymentDate = paymentDateRaw ? normalizeDate(paymentDateRaw) : "";
+    if (paymentDateRaw && !paymentDate) {
+      throw new Error(`CSV ${index + 2}行目: ${settings.paymentDateColumn} が空か日付形式ではありません`);
+    }
+
     const group = groupMap.get(vendorCode) ?? {
       vendorCode,
       vendorLookupValue,
+      requesterSlackUserId,
       completionDates: [],
       finalDeadlineValues: [],
+      orderDateValues: [],
+      paymentDateValues: [],
       rowCount: 0,
     };
     group.completionDates.push(dueDate);
     group.finalDeadlineValues.push(getValueByHeader(row, settings.finalDeadlineColumn));
+    if (!group.requesterSlackUserId && requesterSlackUserId) {
+      group.requesterSlackUserId = requesterSlackUserId;
+    }
+    if (orderDate) {
+      group.orderDateValues.push(orderDate);
+    }
+    if (paymentDate) {
+      group.paymentDateValues.push(paymentDate);
+    }
     group.rowCount += 1;
     groupMap.set(vendorCode, group);
 

@@ -6,7 +6,7 @@ import { backlog } from "../backlog/client";
 import { resolveDriveFolderKey, resolveRequesterSlackId } from "../backlog/issueContext";
 import { extractCsvHeaders, importOrderCsvForIssue, parseOrderCsv, parsePlanningInspectionCsv } from "../orders/csvImport";
 import { generateOrderDocumentsFromIssue } from "../orders/generator";
-import { createLegalRequest, findIssueWorkflowByIssueKey, findLegalRequestByBacklogKey, findManufacturingEventByBacklogIssueKey, findStaffBySlackUserId, findVendorByCode, getAdminDashboardSnapshot, listDepartmentWorkflowRules, listStaff, listStaffDepartments, listStampWorkflows, listVendors, matchVendor, saveGeneratedDocuments, saveIssueDocumentDraft, upsertDepartmentWorkflowRule, upsertStaff, upsertVendor } from "../db/repository";
+import { createBacklogSyncRun, createLegalRequest, findIssueWorkflowByIssueKey, findLegalRequestByBacklogKey, findManufacturingEventByBacklogIssueKey, findStaffBySlackUserId, findVendorByCode, getAdminDashboardSnapshot, listDepartmentWorkflowRules, listStaff, listStaffDepartments, listStampWorkflows, listVendors, matchVendor, saveGeneratedDocuments, saveIssueDocumentDraft, upsertDepartmentWorkflowRule, upsertStaff, upsertVendor } from "../db/repository";
 import { assignOrderItemBacklogIssueKey, createDeliveryEvent, findDeliveryEventByBacklogIssueKey, getDeliveryEventWithContext, getOrderItems, getOrderSummary } from "../db/orderRepository";
 import { resolveDriveFolderId, resolveDriveFolderLabel } from "../documents/driveFolders";
 import { tryUploadToDrive } from "../documents/fileStorage";
@@ -31,13 +31,18 @@ import { getWorkflowSettings, saveWorkflowSettings } from "../workflow/workflowS
 import { DOCUMENT_REQUEST_DEFINITIONS, getDocumentRequestDefinition, type DocumentRequestType } from "../workflow/documentRequestConfig";
 import { getDocumentRequestFieldGroups, validateDocumentRequestValues } from "../workflow/documentRequestFields";
 import { getBacklogCustomFieldValue, resolveIssueDocumentDate, resolveIssueDocumentNumber } from "../workflow/documentDefaults";
-import { getLocalRuntimeStatus } from "../local/status";
+import { runBacklogPollingOnce } from "../backlog/poller";
+import { getLocalRuntimeStatus, updateLocalComponentStatus } from "../local/status";
+import { createOptionalSlackClient } from "../slack/optionalClient";
 import { WebClient } from "@slack/web-api";
 import Papa from "papaparse";
+
+let isManualBacklogSyncRunning = false;
 
 export function createAdminRouter(): Router {
   const router = Router();
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+  const optionalSlackClient = createOptionalSlackClient(process.env.SLACK_BOT_TOKEN);
 
   router.get("/", async (_req: Request, res: Response) => {
     try {
@@ -169,15 +174,34 @@ export function createAdminRouter(): Router {
         return;
       }
 
+      let summary = "";
+      let issueTypeName = "";
+      try {
+        const issue = await backlog.getIssue(issueKey);
+        summary = String(issue.summary ?? "").trim();
+        issueTypeName = String(issue.issueType?.name ?? "").trim();
+      } catch {
+        // Backlog 参照に失敗しても、ランチャー自体は使えるように既定導線へフォールバックする。
+      }
+
+      const resolved = resolveAdminLauncherForIssueType(issueTypeName) ?? {
+        path: "/admin/workflow/contracts",
+        label: "契約書編集",
+        workflowKind: "contracts" as const,
+      };
+
       res.json({
         ok: true,
         issueKey,
-        summary: "",
-        issueTypeName: "",
-        recommendedPath: "/admin/workflow/contracts",
-        recommendedLabel: "契約書編集",
-        workflowKind: "contracts",
-        note: "Backlog 接続なしでも使えるように、既定では契約書編集を開きます。必要に応じて納品帳票・利用許諾料計算を選んでください。",
+        summary,
+        issueTypeName,
+        issueUrl: buildBacklogIssueUrl(issueKey) ?? "",
+        recommendedPath: resolved.path,
+        recommendedLabel: resolved.label,
+        workflowKind: resolved.workflowKind,
+        note: issueTypeName
+          ? `種別「${issueTypeName}」として判定しました。`
+          : "Backlog の種別判定ができなかったため、既定では契約書編集を開きます。",
       });
     } catch (error) {
       res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -218,6 +242,65 @@ export function createAdminRouter(): Router {
     });
   });
 
+  router.post("/api/system/backlog-sync", async (_req: Request, res: Response) => {
+    if (isManualBacklogSyncRunning) {
+      res.status(409).json({
+        ok: false,
+        error: "Backlog 同期はすでに実行中です。",
+      });
+      return;
+    }
+
+    isManualBacklogSyncRunning = true;
+    updateLocalComponentStatus("poller", {
+      severity: "pending",
+      detail: "Backlog 同期を手動実行しています。",
+    });
+
+    try {
+      const summary = await runBacklogPollingOnce(optionalSlackClient);
+      await createBacklogSyncRun({
+        triggerSource: "admin-ui",
+        status: "SUCCEEDED",
+        issueCount: summary.issueCount,
+        changedCount: summary.changedCount,
+        processedCount: summary.processedCount,
+        failedCount: summary.failedCount,
+        bootstrapped: summary.bootstrapped,
+      });
+      updateLocalComponentStatus("poller", {
+        severity: summary.failedCount > 0 ? "warning" : "ok",
+        detail: summary.bootstrapped
+          ? `Backlog 同期を完了しました。変更 ${summary.changedCount} 件、処理 ${summary.processedCount} 件、失敗 ${summary.failedCount} 件です。`
+          : `Backlog の初回スナップショットを保存しました。対象 ${summary.issueCount} 件です。`,
+        success: summary.failedCount === 0,
+        meta: summary,
+      });
+      res.json({
+        ok: true,
+        summary,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await createBacklogSyncRun({
+        triggerSource: "admin-ui",
+        status: "FAILED",
+        errorMessage: message,
+      });
+      updateLocalComponentStatus("poller", {
+        severity: "error",
+        detail: `Backlog 手動同期に失敗しました。${message}`,
+        error: true,
+      });
+      res.status(503).json({
+        ok: false,
+        error: message,
+      });
+    } finally {
+      isManualBacklogSyncRunning = false;
+    }
+  });
+
   router.get("/api/settings/mapping", (_req: Request, res: Response) => {
     res.json({
       ok: true,
@@ -236,6 +319,8 @@ export function createAdminRouter(): Router {
       const profile = savePlanningImportSettings({
         projectTitleSource: req.body?.projectTitleSource === "manual" ? "manual" : "filename",
         projectTitleManualValue: String(req.body?.projectTitleManualValue ?? "").trim(),
+        requesterSlackUserIdColumn: String(req.body?.requesterSlackUserIdColumn ?? "").trim(),
+        orderDateColumn: String(req.body?.orderDateColumn ?? "").trim(),
         vendorLookupColumn: String(req.body?.vendorLookupColumn ?? "").trim(),
         vendorCodeColumn: String(req.body?.vendorCodeColumn ?? "").trim(),
         itemNameColumn: String(req.body?.itemNameColumn ?? "").trim(),
@@ -244,6 +329,7 @@ export function createAdminRouter(): Router {
         finalDeadlineColumn: String(req.body?.finalDeadlineColumn ?? "").trim(),
         quantityColumn: String(req.body?.quantityColumn ?? "").trim(),
         unitPriceColumn: String(req.body?.unitPriceColumn ?? "").trim(),
+        paymentDateColumn: String(req.body?.paymentDateColumn ?? "").trim(),
         amountColumn: String(req.body?.amountColumn ?? "").trim(),
         amountFallbackColumn: String(req.body?.amountFallbackColumn ?? "").trim(),
         detailColumns: splitLines(req.body?.detailColumns),
@@ -753,29 +839,38 @@ export function createAdminRouter(): Router {
     try {
       const rows = parseMasterCsv(String(req.body?.csvText ?? ""));
       const results = [];
-      for (const row of rows) {
-        if (!String(row.slackUserId ?? "").trim() || !String(row.staffName ?? "").trim()) {
+      const warnings: string[] = [];
+      for (const [index, row] of rows.entries()) {
+        const normalizedRow = normalizeStaffCsvRow(row);
+        const slackUserId = normalizeSlackUserId(normalizedRow.slackUserId);
+        const staffName = String(normalizedRow.staffName ?? "").trim();
+        if (!slackUserId || !staffName) {
+          warnings.push(`Staff CSV ${index + 2}行目をスキップしました。slackUserId と staffName は必須です。`);
           continue;
         }
-        const staff = await upsertStaff({
-          slackUserId: String(row.slackUserId ?? "").trim(),
-          staffName: String(row.staffName ?? "").trim(),
-          department: emptyToUndefined(row.department),
-          departmentCode: emptyToUndefined(row.departmentCode),
-          phone: emptyToUndefined(row.phone),
-          email: emptyToUndefined(row.email),
-          partyAName: emptyToUndefined(row.partyAName),
-          partyAAddress: emptyToUndefined(row.partyAAddress),
-          partyARep: emptyToUndefined(row.partyARep),
-        });
-        results.push({
-          slackUserId: staff.slackUserId,
-          staffName: staff.staffName,
-          department: staff.department,
-          departmentCode: staff.departmentCode,
-        });
+        try {
+          const staff = await upsertStaff({
+            slackUserId,
+            staffName,
+            department: emptyToUndefined(normalizedRow.department),
+            departmentCode: emptyToUndefined(normalizedRow.departmentCode),
+            phone: emptyToUndefined(normalizedRow.phone),
+            email: emptyToUndefined(normalizedRow.email),
+            partyAName: emptyToUndefined(normalizedRow.partyAName),
+            partyAAddress: emptyToUndefined(normalizedRow.partyAAddress),
+            partyARep: emptyToUndefined(normalizedRow.partyARep),
+          });
+          results.push({
+            slackUserId: staff.slackUserId,
+            staffName: staff.staffName,
+            department: staff.department,
+            departmentCode: staff.departmentCode,
+          });
+        } catch (error) {
+          throw new Error(`Staff CSV ${index + 2}行目 (${slackUserId}) の取込に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-      res.json({ ok: true, count: results.length, staffs: results });
+      res.json({ ok: true, count: results.length, staffs: results, warnings });
     } catch (error) {
       res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -4140,6 +4235,44 @@ function buildStaffSampleCsv(): string {
   ].join("\n");
 }
 
+function normalizeSlackUserId(value: string | undefined): string {
+  const raw = String(value ?? "").trim();
+  const mentionMatch = raw.match(/^<@([A-Z0-9]+)>$/i);
+  return (mentionMatch?.[1] ?? raw).trim();
+}
+
+function normalizeStaffCsvRow(row: Record<string, string>): Record<string, string> {
+  const normalizedEntries = new Map<string, string>();
+  for (const [key, value] of Object.entries(row ?? {})) {
+    const normalizedKey = String(key ?? "")
+      .trim()
+      .replace(/^\uFEFF/, "")
+      .replace(/\s+/g, "")
+      .toLowerCase();
+    normalizedEntries.set(normalizedKey, String(value ?? "").trim());
+  }
+
+  const pick = (...candidates: string[]) => {
+    for (const candidate of candidates) {
+      const value = normalizedEntries.get(candidate);
+      if (value != null) return value;
+    }
+    return "";
+  };
+
+  return {
+    slackUserId: pick("slackuserid", "slackid", "userid", "userid", "slackユーザーid", "slackユーザー", "slackid(必須)", "slackid※必須"),
+    staffName: pick("staffname", "name", "氏名", "名前", "担当者名"),
+    department: pick("department", "部署", "部門"),
+    departmentCode: pick("departmentcode", "部署コード", "部門コード"),
+    phone: pick("phone", "tel", "電話", "電話番号"),
+    email: pick("email", "mail", "メール", "メールアドレス"),
+    partyAName: pick("partyaname", "自社名", "当社名"),
+    partyAAddress: pick("partyaaddress", "自社住所", "当社住所"),
+    partyARep: pick("partyarep", "自社代表者", "当社代表者"),
+  };
+}
+
 function buildMasterAdminHtml(): string {
   return `<!DOCTYPE html>
 <html lang="ja">
@@ -4435,7 +4568,7 @@ function buildMasterAdminHtml(): string {
       return { text: utf8Text, encoding: "UTF-8" };
     }
     function decodeBuffer(buffer, encoding) {
-      try { return new TextDecoder(encoding).decode(buffer); } catch { return ""; }
+      try { return new TextDecoder(encoding).decode(buffer); } catch (decodeError) { return ""; }
     }
     function scoreText(text) {
       return (text.match(/\uFFFD/g) || []).length * 10;
@@ -4601,6 +4734,14 @@ function buildMasterAdminHtml(): string {
           "<div class='table-wrap' style='margin-top:8px;'><table><thead><tr><th>Slack ID</th><th>氏名</th><th>部署</th></tr></thead><tbody>" +
           result.staffs.map(s => \`<tr><td><code>\${escapeHtml(s.slackUserId)}</code></td><td>\${escapeHtml(s.staffName)}</td><td>\${escapeHtml(s.department || "-")}</td></tr>\`).join("") +
           "</tbody></table></div>";
+        if (result.warnings && result.warnings.length > 0) {
+          resultEl.innerHTML += "<div class='warning-summary warning-warn' style='margin-top:12px;'>スキップ行があります</div>"
+            + result.warnings.map(message => "<div class='warning-line warning-warn'>" + escapeHtml(message) + "</div>").join("");
+        }
+      } else if (result.warnings && result.warnings.length > 0) {
+        resultEl.className = "import-progress show";
+        resultEl.innerHTML = "<div class='warning-summary warning-warn'>取込対象がありませんでした</div>"
+          + result.warnings.map(message => "<div class='warning-line warning-warn'>" + escapeHtml(message) + "</div>").join("");
       }
     });
 
@@ -5027,9 +5168,9 @@ function getOrderCsvSample(profileId: string): {
     return {
       fileName: "publishing_bulk_sample.csv",
       csv: [
-        "ISBN,書名,巻数,判型,ページ数,作業内容,作家名,vendorID,初校締切,再校締切,校了予定,発注金額,備考",
-        "978000000001,空色文庫,上巻,A5,192,本文組版・装画,山田花子,VN-001,2026/04/15,2026/04/25,2026/04/30,120000,初版制作",
-        "978000000002,星巡り図鑑,単巻,B6,128,本文組版・図版調整,佐藤次郎,VN-002,2026/04/18,,2026/05/08,85000,重版対応含む",
+        "担当者ID,発注日,支払日,コード,支払先（ペンネーム）,書籍名,業務概要,業務詳細（仕様）,単価（税込）,数量,発注金額（税別）,初校締切,再校締切,校了予定,備考",
+        "U0123456789,2026/04/13,2026/05/20,VN-001,山田花子,空色文庫,本文組版,装画・本文192頁・A5,120000,1,120000,2026/04/15,2026/04/25,2026/04/30,初版制作",
+        "U0123456789,2026/04/13,2026/06/20,VN-002,佐藤次郎,星巡り図鑑,本文組版,図版調整・本文128頁・B6,85000,1,85000,2026/04/18,,2026/05/08,重版対応含む",
       ].join("\n"),
     };
   }
@@ -5053,18 +5194,20 @@ function getOrderCsvVariableMap(profileId: string): {
       fileName: "publishing_bulk_variable_map.csv",
       csv: [
         "csvColumn,templateVariable,fieldPath,section,note",
-        "書名,ITEM_NAME,items[].description,明細,帳票の明細名として出力",
-        "作業内容,ITEM_SPEC,items[].spec,明細,明細の仕様・補足へ反映",
-        "発注金額,ITEM_AMOUNT,items[].amount,明細,税抜金額",
+        "担当者ID,STAFF_NAME / STAFF_EMAIL,staff master lookup,自社情報,Slack ID から Staff マスタを引いて担当者名とメールを補完",
+        "発注日,ORDER_DATE_YEAR / ORDER_DATE_MONTH / ORDER_DATE_DAY,document header,文書ヘッダ,発注書の発行日として使用",
+        "支払日,PAYMENT_TERMS / items[].payment_date,planningContext payment date,支払条件,支払日を発注書の支払条件表示に使用",
+        "書籍名,ITEM_NAME,items[].description,明細,帳票の明細名として出力",
+        "業務概要,ITEM_SPEC,items[].spec,明細,明細の仕様・補足へ反映",
+        "業務詳細（仕様）,ITEM_SPEC,items[].spec,明細,業務概要と連結して仕様欄へ反映",
+        "発注金額（税別）,ITEM_AMOUNT,items[].amount,明細,税抜金額の優先列",
+        "単価（税込）,unitPrice,items[].unitPrice,明細,明細単価",
+        "数量,qty,items[].quantity,明細,明細数量",
         "初校締切,ITEM_DUE_DATE,items[].dueDate,明細,明細納期の主候補",
         "再校締切,ITEM_DUE_DATE,items[].dueDate,明細,初校締切未入力時の補完候補",
         "校了予定,ITEM_DUE_DATE,items[].dueDate,明細,最終締切の補助候補",
-        "作家名,VENDOR_NAME,VENDOR_NAME / items[].vendorLookup,相手方,取引先名の解決に使用",
-        "vendorID,VENDOR_CODE,items[].vendorCode,相手方,同一取引先の束ね単位",
-        "ISBN,ITEM_SPEC,items[].spec,明細,仕様欄へ追記候補",
-        "巻数,ITEM_SPEC,items[].spec,明細,仕様欄へ追記候補",
-        "判型,ITEM_SPEC,items[].spec,明細,仕様欄へ追記候補",
-        "ページ数,ITEM_SPEC,items[].spec,明細,仕様欄へ追記候補",
+        "支払先（ペンネーム）,VENDOR_NAME,VENDOR_NAME / items[].vendorLookup,相手方,取引先名の解決に使用",
+        "コード,VENDOR_CODE,items[].vendorCode,相手方,同一取引先の束ね単位",
         "備考,REMARKS,REMARKS,備考,帳票全体の備考に追記候補",
       ].join("\n"),
     };
@@ -5319,6 +5462,26 @@ function buildAdminHomeHtml(
       <a class="inline-action" href="${escapeHtmlAttr(item.actionHref)}">${escapeHtmlText(item.actionLabel)}</a>
     </article>
   `).join("");
+  const recentBacklogSyncRunsHtml = snapshot.recentBacklogSyncRuns?.length > 0
+    ? snapshot.recentBacklogSyncRuns.map((item) => {
+        const badgeClass = item.status === "FAILED" ? "timeline-badge runtime-alert" : "timeline-badge";
+        const summaryText = item.status === "FAILED"
+          ? (item.errorMessage || "Backlog 同期に失敗しました。")
+          : item.bootstrapped
+            ? `対象 ${item.issueCount} 件 / 変更 ${item.changedCount} 件 / 処理 ${item.processedCount} 件 / 失敗 ${item.failedCount} 件`
+            : `初回スナップショット保存: 対象 ${item.issueCount} 件`;
+        return `
+          <article class="timeline-item">
+            <div class="timeline-meta">
+              <span class="${badgeClass}">${escapeHtmlText(item.status)}</span>
+              <time>${escapeHtmlText(formatAdminDate(item.createdAt))}</time>
+            </div>
+            <strong>${escapeHtmlText(item.triggerSource === "admin-ui" ? "管理UIから手動同期" : item.triggerSource)}</strong>
+            <div class="timeline-summary">${escapeHtmlText(summaryText)}</div>
+          </article>
+        `;
+      }).join("")
+    : `<div class="empty-state">Backlog 手動同期の履歴はまだありません。</div>`;
   const workflowAttentionCardsHtml = workflowAttentionSummary.map((item) => `
     <a class="quick-card runtime-card" href="${escapeHtmlAttr(item.href)}">
       <div class="card-topline">${escapeHtmlText(item.label)}</div>
@@ -5387,18 +5550,19 @@ function buildAdminHomeHtml(
           <span class="tag">モバイルでも見やすい配置</span>
         </div>
         <div class="actions">
+          <button id="backlogSyncBtn" type="button">Backlogを今すぐ同期</button>
           <button id="restartAppBtn" type="button" class="ghost">アプリを再起動</button>
         </div>
       </div>
-      <div id="restartStatus" class="status"></div>
+      <div id="systemActionStatus" class="status"></div>
     </section>
     <section class="panel quick-guide">
       <div class="section-heading">
         <div>
           <div class="eyebrow">Runtime</div>
-          <h2>ローカル運用状態</h2>
+          <h2>サービス運用状態</h2>
         </div>
-        <p class="section-copy">ローカルアプリの稼働状況です。DB、Slack、Backlog 設定差分、定期処理の状態をここから確認できます。</p>
+        <p class="section-copy">管理UIサービスの稼働状況です。DB、Backlog 設定差分、関連サービスとの役割分担をここから確認できます。</p>
       </div>
       <div class="timeline-item runtime-summary">
         <div class="timeline-meta">
@@ -5450,6 +5614,18 @@ function buildAdminHomeHtml(
         ${diagnosticsCardsHtml}
       </div>
     </section>
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">Backlog Sync</div>
+          <h2>同期実行履歴</h2>
+        </div>
+        <p class="section-copy">管理UIから実行した Backlog 手動同期の結果を新しい順に表示します。</p>
+      </div>
+      <div class="timeline-list">
+        ${recentBacklogSyncRunsHtml}
+      </div>
+    </section>
     <section class="panel quick-guide">
       <div class="section-heading">
         <div>
@@ -5492,7 +5668,7 @@ function buildAdminHomeHtml(
           <div class="eyebrow">Issue Launcher</div>
           <h2>Backlog課題キーから直接開く</h2>
         </div>
-        <p class="section-copy">Backlog を起点に、課題キーだけでローカルの確認・生成画面を開ける入口です。</p>
+          <p class="section-copy">Backlog を起点に、課題キーだけで管理UI内の対象画面へ直接進める入口です。</p>
       </div>
       <div class="grid two-col">
         <section>
@@ -5501,6 +5677,9 @@ function buildAdminHomeHtml(
             <input id="launcherIssueKey" type="text" placeholder="LEGAL-123" />
           </div>
           <div id="launcherStatus" class="status"></div>
+          <div id="launcherHint" class="summary-box" style="margin-top:12px;">
+            課題キーを入れて「判定する」を押すと、種別に応じたおすすめ画面を表示します。
+          </div>
         </section>
         <section class="summary-box">
           使い分け:
@@ -5510,6 +5689,7 @@ function buildAdminHomeHtml(
         </section>
       </div>
       <div class="actions">
+        <button id="resolveLauncher" type="button">判定する</button>
         <button id="openContractLauncher" type="button">契約書編集を開く</button>
         <button id="openDeliveryLauncher" type="button" class="ghost">納品帳票を開く</button>
         <button id="openRoyaltyLauncher" type="button" class="ghost">利用許諾料計算を開く</button>
@@ -5610,47 +5790,85 @@ function buildAdminHomeHtml(
   <script>
     const launcherIssueKey = document.getElementById("launcherIssueKey");
     const launcherStatus = document.getElementById("launcherStatus");
+    const launcherHint = document.getElementById("launcherHint");
+    let launcherResolved = null;
 
     document.getElementById("openContractLauncher").addEventListener("click", () => openIssueLauncher("/admin/workflow/contracts"));
     document.getElementById("openDeliveryLauncher").addEventListener("click", () => openIssueLauncher("/admin/workflow/delivery"));
     document.getElementById("openRoyaltyLauncher").addEventListener("click", () => openIssueLauncher("/admin/workflow/royalty"));
+    document.getElementById("resolveLauncher").addEventListener("click", async () => {
+      await resolveLauncher();
+    });
     document.getElementById("openRecommendedLauncher").addEventListener("click", async () => {
+      const payload = await resolveLauncher();
+      if (!payload) return;
+      window.location.href = payload.recommendedPath + "?issueKey=" + encodeURIComponent(payload.issueKey);
+    });
+    document.getElementById("openBacklogLauncher").addEventListener("click", async () => {
+      const payload = launcherResolved ?? await resolveLauncher();
+      if (!payload) return;
+      if (payload.issueUrl) {
+        window.location.href = payload.issueUrl;
+        return;
+      }
       const issueKey = normalizeIssueKey(launcherIssueKey.value);
       if (!issueKey) {
         launcherStatus.className = "status error";
         launcherStatus.textContent = "Backlog課題キーを入力してください。";
         return;
       }
-      launcherStatus.className = "status";
-      launcherStatus.textContent = "既定画面を開く準備をしています...";
-      try {
-        const response = await fetch("/admin/api/workflow/resolve-launcher?issueKey=" + encodeURIComponent(issueKey));
-        const payload = await response.json();
-        if (!payload.ok) {
-          launcherStatus.className = "status error";
-          launcherStatus.textContent = payload.error || "既定画面を判定できませんでした。";
-          return;
-        }
-        launcherStatus.className = "status success";
-        launcherStatus.textContent = (payload.note || ("既定: " + payload.recommendedLabel + " を開きます。"));
-        window.location.href = payload.recommendedPath + "?issueKey=" + encodeURIComponent(issueKey);
-      } catch (error) {
-        launcherStatus.className = "status error";
-        launcherStatus.textContent = "既定画面の判定に失敗しました。";
+      window.location.href = ${JSON.stringify(`https://${process.env.BACKLOG_SPACE}.backlog.com/view/`)} + encodeURIComponent(issueKey);
+    });
+    launcherIssueKey.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void resolveLauncher();
       }
     });
-    document.getElementById("openBacklogLauncher").addEventListener("click", () => {
-      const issueKey = normalizeIssueKey(launcherIssueKey.value);
-      if (!issueKey) {
-        launcherStatus.className = "status error";
-        launcherStatus.textContent = "Backlog課題キーを入力してください。";
-        return;
+    launcherIssueKey.addEventListener("input", () => {
+      launcherResolved = null;
+      launcherHint.textContent = "課題キーを入れて「判定する」を押すと、種別に応じたおすすめ画面を表示します。";
+    });
+
+    document.getElementById("backlogSyncBtn").addEventListener("click", async () => {
+      const status = document.getElementById("systemActionStatus");
+      status.className = "status";
+      status.textContent = "Backlog 同期を実行しています...";
+
+      try {
+        const response = await fetch("/admin/api/system/backlog-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const result = await response.json();
+        if (!result.ok) {
+          status.className = "status error";
+          status.textContent = result.error || "Backlog 同期に失敗しました。";
+          return;
+        }
+
+        const summary = result.summary || {};
+        status.className = "status success";
+        status.textContent = summary.bootstrapped === false
+          ? "Backlog の初回スナップショットを保存しました。"
+          : "Backlog 同期が完了しました。変更 "
+            + (summary.changedCount ?? 0)
+            + " 件 / 処理 "
+            + (summary.processedCount ?? 0)
+            + " 件 / 失敗 "
+            + (summary.failedCount ?? 0)
+            + " 件";
+        setTimeout(() => {
+          window.location.href = "/admin";
+        }, 2000);
+      } catch (error) {
+        status.className = "status error";
+        status.textContent = "Backlog 同期に失敗しました。数秒後に再試行してください。";
       }
-      window.open(${JSON.stringify(`https://${process.env.BACKLOG_SPACE}.backlog.com/view/`)} + encodeURIComponent(issueKey), "_blank", "noreferrer");
     });
 
     document.getElementById("restartAppBtn").addEventListener("click", async () => {
-      const status = document.getElementById("restartStatus");
+      const status = document.getElementById("systemActionStatus");
       const confirmed = window.confirm("アプリを再起動します。数秒間 WebUI へアクセスできなくなります。続けますか？");
       if (!confirmed) return;
 
@@ -5695,6 +5913,52 @@ function buildAdminHomeHtml(
     function normalizeIssueKey(value) {
       const normalized = String(value ?? "").trim().toUpperCase();
       return /^[A-Z][A-Z0-9_]*-\d+$/.test(normalized) ? normalized : "";
+    }
+
+    async function resolveLauncher() {
+      const issueKey = normalizeIssueKey(launcherIssueKey.value);
+      if (!issueKey) {
+        launcherStatus.className = "status error";
+        launcherStatus.textContent = "Backlog課題キーを入力してください。";
+        launcherHint.textContent = "例: LEGAL-123 の形式で入力してください。";
+        return null;
+      }
+
+      launcherStatus.className = "status";
+      launcherStatus.textContent = "Backlog課題を確認しています...";
+      try {
+        const response = await fetch("/admin/api/workflow/resolve-launcher?issueKey=" + encodeURIComponent(issueKey));
+        const payload = await response.json();
+        if (!payload.ok) {
+          launcherStatus.className = "status error";
+          launcherStatus.textContent = payload.error || "既定画面を判定できませんでした。";
+          launcherHint.textContent = "課題キーを確認して、もう一度試してください。";
+          return null;
+        }
+
+        launcherResolved = payload;
+        launcherStatus.className = "status success";
+        launcherStatus.textContent = payload.note || ("既定: " + payload.recommendedLabel + " を開きます。");
+        launcherHint.innerHTML = [
+          payload.issueTypeName ? "種別: <strong>" + escapeHtml(payload.issueTypeName) + "</strong>" : "種別: 未判定",
+          payload.summary ? "件名: <strong>" + escapeHtml(payload.summary) + "</strong>" : "",
+          "おすすめ: <strong>" + escapeHtml(payload.recommendedLabel) + "</strong>",
+        ].filter(Boolean).join("<br>");
+        return payload;
+      } catch (error) {
+        launcherStatus.className = "status error";
+        launcherStatus.textContent = "既定画面の判定に失敗しました。";
+        launcherHint.textContent = "通信状態を確認して、もう一度試してください。";
+        return null;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
   </script>
 </body>
@@ -5999,7 +6263,7 @@ function buildContractsAdminHubHtml(
     "使い分け",
     [
       "契約本文を出すときは契約書生成、社内の押印状況を追うときは押印管理を使います。",
-      "Slack 起票は最小項目、詳細条件や補完は Backlog とローカル側で進める前提です。",
+      "Slack 起票は最小項目に寄せ、詳細条件や補完は Backlog と管理UI側で進める前提です。",
     ],
     `<section class="grid two-col" style="margin-top:24px;">
       <section class="panel">
@@ -6307,7 +6571,7 @@ function buildRoyaltyAdminHubHtml(
     "使い分け",
     [
       "製造完了ベースと売上報告ベースで入力値は違いますが、報告期限と支払期限は Backlog 側で持ちます。",
-      "Slack では最小項目だけ入力し、詳細条件は Backlog / Local で補完します。",
+      "Slack では最小項目だけ入力し、詳細条件は Backlog と管理UIで補完します。",
     ],
     `<section class="grid two-col" style="margin-top:24px;">
       <section class="panel">
@@ -6726,9 +6990,9 @@ function buildCsvAdminHtml(): string {
         csv: "カードNo.,カード名,色,カード種類,キャラ備考,特徴,画角,イラスト指定,作家名,完成,B〆\nA-001,炎の剣士,赤,ユニット,主人公,火炎・前衛,バストアップ,躍動感のある構図,山田花子,2026/04/15,2026/04/30\nB-014,森の賢者,緑,ユニット,老賢者,回復・支援,全身,柔らかい自然光,山田花子,2026/04/30,",
       },
       publishing_bulk: {
-        note: "出版一括発注書モード: 書名 / 初校締切 / 校了予定 / 発注金額 などの列名を読み替えます。",
+        note: "出版一括発注書モード: 担当者ID / 発注日 / 支払日 / 書籍名 / 初校締切 / 発注金額（税別） などの列名を読み替えます。",
         fileName: "出版一括発注_2026年4月.csv",
-        csv: "ISBN,書名,巻数,判型,ページ数,作業内容,作家名,vendorID,初校締切,再校締切,校了予定,発注金額,備考\n978000000001,空色文庫,上巻,A5,192,本文組版・装画,山田花子,VN-001,2026/04/15,2026/04/25,2026/04/30,120000,初版制作",
+        csv: "担当者ID,発注日,支払日,コード,支払先（ペンネーム）,書籍名,業務概要,業務詳細（仕様）,単価（税込）,数量,発注金額（税別）,初校締切,再校締切,校了予定,備考\nU0123456789,2026/04/13,2026/05/20,VN-001,山田花子,空色文庫,本文組版,装画・本文192頁・A5,120000,1,120000,2026/04/15,2026/04/25,2026/04/30,初版制作",
       },
     };
     let workbookBase64 = "";
@@ -6767,7 +7031,7 @@ function buildCsvAdminHtml(): string {
       return { text: utf8Text, encoding: "UTF-8" };
     }
     function decodeWithEncoding(buffer, encoding) {
-      try { return new TextDecoder(encoding).decode(buffer); } catch { return ""; }
+      try { return new TextDecoder(encoding).decode(buffer); } catch (decodeError) { return ""; }
     }
     function scoreDecodedText(text) {
       if (!text) return Number.MAX_SAFE_INTEGER;
@@ -6828,110 +7092,116 @@ function buildCsvAdminHtml(): string {
 
     // プレビュー
     document.getElementById("previewBtn").addEventListener("click", async () => {
-      setStatus("プレビューを作成中...");
-      previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--muted);">読み込み中...</td></tr>\`;
-      hideAlerts();
+      try {
+        setStatus("プレビューを作成中...");
+        previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--muted);">読み込み中...</td></tr>\`;
+        hideAlerts();
 
-      const result = await postJson("/admin/api/orders/csv/preview", {
-        csvText: csvText.value,
-        mode: mode.value,
-        mappingProfileId: mappingProfileId.value,
-        sourceFileName: sourceFileName.value,
-        projectTitle: projectTitle.value,
-        specialTerms: document.getElementById("specialTerms").value,
-        remarks: document.getElementById("remarks").value,
-        acceptMethod: document.getElementById("acceptMethod").value,
-        acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
-      });
+        const result = await postJson("/admin/api/orders/csv/preview", {
+          csvText: csvText.value,
+          mode: mode.value,
+          mappingProfileId: mappingProfileId.value,
+          sourceFileName: sourceFileName.value,
+          projectTitle: projectTitle.value,
+          specialTerms: document.getElementById("specialTerms").value,
+          remarks: document.getElementById("remarks").value,
+          acceptMethod: document.getElementById("acceptMethod").value,
+          acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
+        });
 
-      if (!result.ok) {
-        setStatus("プレビュー失敗: " + result.error, "error");
+        if (!result.ok) {
+          setStatus("プレビュー失敗: " + result.error, "error");
+          previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--danger);">プレビューに失敗しました</td></tr>\`;
+          return;
+        }
+
+        setStatus("プレビュー完了: " + result.count + " 件", "success");
+        previewCount.textContent = result.count + " 件";
+        previewCount.style.display = "inline-flex";
+
+        previewBody.innerHTML = (result.items || []).map((item) => \`
+          <tr>
+            <td>\${escapeHtml(item.no)}</td>
+            <td>\${escapeHtml(item.vendorCode || "")}</td>
+            <td>\${escapeHtml(item.category || "")}</td>
+            <td>\${escapeHtml(item.payMethod || "")}</td>
+            <td style="text-align:right;">\${escapeHtml(item.qty)}</td>
+            <td style="text-align:right;">\${escapeHtml(item.unitPrice || "")}</td>
+            <td>\${escapeHtml(item.desc)}</td>
+            <td style="max-width:200px;">\${escapeHtml(item.spec || "")}</td>
+            <td><span class="tag" style="font-size:11px;">\${escapeHtml(item.amountSourceLabel || "直接")}</span></td>
+            <td style="text-align:right;font-weight:600;">\${escapeHtml(item.amount)}</td>
+            <td>\${escapeHtml(item.dueDate)}</td>
+          </tr>
+        \`).join("");
+
+        if (result.mode === "planning" && result.planningContext) {
+          showPlanningSummary(result);
+        }
+        if (result.vendorStatuses && result.vendorStatuses.length > 0) {
+          showVendorAlert(result.vendorStatuses);
+        }
+        if (result.warnings && result.warnings.length > 0) {
+          showWarnings(result.warnings);
+        }
+      } catch (error) {
+        setStatus("プレビュー失敗: " + getErrorMessage(error), "error");
         previewBody.innerHTML = \`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--danger);">プレビューに失敗しました</td></tr>\`;
-        return;
-      }
-
-      setStatus("プレビュー完了: " + result.count + " 件", "success");
-      previewCount.textContent = result.count + " 件";
-      previewCount.style.display = "inline-flex";
-
-      previewBody.innerHTML = (result.items || []).map((item) => \`
-        <tr>
-          <td>\${escapeHtml(item.no)}</td>
-          <td>\${escapeHtml(item.vendorCode || "")}</td>
-          <td>\${escapeHtml(item.category || "")}</td>
-          <td>\${escapeHtml(item.payMethod || "")}</td>
-          <td style="text-align:right;">\${escapeHtml(item.qty)}</td>
-          <td style="text-align:right;">\${escapeHtml(item.unitPrice || "")}</td>
-          <td>\${escapeHtml(item.desc)}</td>
-          <td style="max-width:200px;">\${escapeHtml(item.spec || "")}</td>
-          <td><span class="tag" style="font-size:11px;">\${escapeHtml(item.amountSourceLabel || "直接")}</span></td>
-          <td style="text-align:right;font-weight:600;">\${escapeHtml(item.amount)}</td>
-          <td>\${escapeHtml(item.dueDate)}</td>
-        </tr>
-      \`).join("");
-
-      // 企画発注書サマリー
-      if (result.mode === "planning" && result.planningContext) {
-        showPlanningSummary(result);
-      }
-      // Vendor確認
-      if (result.vendorStatuses && result.vendorStatuses.length > 0) {
-        showVendorAlert(result.vendorStatuses);
-      }
-      // 警告
-      if (result.warnings && result.warnings.length > 0) {
-        showWarnings(result.warnings);
       }
     });
 
     // 取込実行
     document.getElementById("importBtn").addEventListener("click", async () => {
-      const issueKeyVal = document.getElementById("issueKey").value.trim();
-      if (!issueKeyVal) {
-        setStatus("Backlog課題キーを入力してください。", "error");
-        return;
+      try {
+        const issueKeyVal = document.getElementById("issueKey").value.trim();
+        if (!issueKeyVal) {
+          setStatus("Backlog課題キーを入力してください。", "error");
+          return;
+        }
+        if (!csvText.value.trim()) {
+          setStatus("CSVを入力またはファイルを選択してください。", "error");
+          return;
+        }
+
+        setStatus("取り込みを実行中...");
+        document.getElementById("importResultPanel").style.display = "none";
+
+        const result = await postJson("/admin/api/orders/csv/import", {
+          issueKey: issueKeyVal,
+          csvText: csvText.value,
+          generateDocuments: generateDocuments.checked,
+          mode: mode.value,
+          mappingProfileId: mappingProfileId.value,
+          sourceFileName: sourceFileName.value,
+          projectTitle: projectTitle.value,
+          specialTerms: document.getElementById("specialTerms").value,
+          remarks: document.getElementById("remarks").value,
+          acceptMethod: document.getElementById("acceptMethod").value,
+          acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
+        });
+
+        if (!result.ok) {
+          const warningText = result.warnings && result.warnings.length
+            ? " / " + result.warnings.map((w) => "[" + (w.severity === "blocking" ? "停止" : "注意") + "] " + w.message).join(" / ")
+            : "";
+          setStatus("取込失敗: " + result.error + warningText, "error");
+          if (result.warnings) showWarnings(result.warnings);
+          return;
+        }
+
+        const resultMsg = [
+          "課題: " + result.issueKey,
+          "明細: " + result.importedCount + " 件",
+          result.createdTrackingIssueCount ? "納品管理課題: " + result.createdTrackingIssueCount + " 件" : "",
+          result.generated ? "発注書生成: 完了" : "",
+        ].filter(Boolean).join("  |  ");
+
+        setStatus("取込完了！", "success");
+        document.getElementById("importResultPanel").style.display = "block";
+        document.getElementById("importResultContent").innerHTML = \`<strong>\${escapeHtml(resultMsg)}</strong>\`;
+      } catch (error) {
+        setStatus("取込失敗: " + getErrorMessage(error), "error");
       }
-      if (!csvText.value.trim()) {
-        setStatus("CSVを入力またはファイルを選択してください。", "error");
-        return;
-      }
-
-      setStatus("取り込みを実行中...");
-      document.getElementById("importResultPanel").style.display = "none";
-
-      const result = await postJson("/admin/api/orders/csv/import", {
-        issueKey: issueKeyVal,
-        csvText: csvText.value,
-        generateDocuments: generateDocuments.checked,
-        mode: mode.value,
-        mappingProfileId: mappingProfileId.value,
-        sourceFileName: sourceFileName.value,
-        projectTitle: projectTitle.value,
-        specialTerms: document.getElementById("specialTerms").value,
-        remarks: document.getElementById("remarks").value,
-        acceptMethod: document.getElementById("acceptMethod").value,
-        acceptReplyDueDate: document.getElementById("acceptReplyDueDate").value,
-      });
-
-      if (!result.ok) {
-        const warningText = result.warnings && result.warnings.length
-          ? " / " + result.warnings.map((w) => "[" + (w.severity === "blocking" ? "停止" : "注意") + "] " + w.message).join(" / ")
-          : "";
-        setStatus("取込失敗: " + result.error + warningText, "error");
-        if (result.warnings) showWarnings(result.warnings);
-        return;
-      }
-
-      const resultMsg = [
-        "課題: " + result.issueKey,
-        "明細: " + result.importedCount + " 件",
-        result.createdTrackingIssueCount ? "納品管理課題: " + result.createdTrackingIssueCount + " 件" : "",
-        result.generated ? "発注書生成: 完了" : "",
-      ].filter(Boolean).join("  |  ");
-
-      setStatus("取込完了！", "success");
-      document.getElementById("importResultPanel").style.display = "block";
-      document.getElementById("importResultContent").innerHTML = \`<strong>\${escapeHtml(resultMsg)}</strong>\`;
     });
 
     // Vendor仮登録
@@ -7002,7 +7272,15 @@ function buildCsvAdminHtml(): string {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      return response.json();
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch (parseError) {
+        if (!response.ok) {
+          throw new Error(text || ("HTTP " + response.status));
+        }
+        throw new Error("JSONレスポンスの解析に失敗しました。");
+      }
     }
 
     async function toBase64(file) {
@@ -7020,6 +7298,13 @@ function buildCsvAdminHtml(): string {
       return String(value ?? "").replace(/[&<>"']/g, (char) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[char]));
+    }
+
+    function getErrorMessage(error) {
+      if (error && typeof error === "object" && "message" in error) {
+        return String(error.message);
+      }
+      return String(error ?? "不明なエラー");
     }
   </script>
 </body>
@@ -7088,6 +7373,8 @@ function buildMappingAdminHtml(): string {
           </select>
         </div>
         <div class="row"><label for="projectTitleManualValue">固定タイトル</label><input id="projectTitleManualValue" type="text" value="${escapeHtmlAttr(settings.projectTitleManualValue)}" /></div>
+        <div class="row"><label for="requesterSlackUserIdColumn">担当者Slack ID列</label><input id="requesterSlackUserIdColumn" type="text" value="${escapeHtmlAttr(settings.requesterSlackUserIdColumn)}" /></div>
+        <div class="row"><label for="orderDateColumn">発注日列</label><input id="orderDateColumn" type="text" value="${escapeHtmlAttr(settings.orderDateColumn)}" /></div>
         <div class="row"><label for="vendorLookupColumn">相手方参照列</label><input id="vendorLookupColumn" type="text" value="${escapeHtmlAttr(settings.vendorLookupColumn)}" /></div>
         <div class="row"><label for="vendorCodeColumn">Vendor Code列</label><input id="vendorCodeColumn" type="text" value="${escapeHtmlAttr(settings.vendorCodeColumn)}" /></div>
         <div class="row"><label for="itemNameColumn">ITEM_NAME列</label><input id="itemNameColumn" type="text" value="${escapeHtmlAttr(settings.itemNameColumn)}" /></div>
@@ -7096,6 +7383,7 @@ function buildMappingAdminHtml(): string {
         <div class="row"><label for="finalDeadlineColumn">B〆列</label><input id="finalDeadlineColumn" type="text" value="${escapeHtmlAttr(settings.finalDeadlineColumn)}" /></div>
         <div class="row"><label for="quantityColumn">数量列</label><input id="quantityColumn" type="text" value="${escapeHtmlAttr(settings.quantityColumn)}" /></div>
         <div class="row"><label for="unitPriceColumn">単価列</label><input id="unitPriceColumn" type="text" value="${escapeHtmlAttr(settings.unitPriceColumn)}" /></div>
+        <div class="row"><label for="paymentDateColumn">支払日列</label><input id="paymentDateColumn" type="text" value="${escapeHtmlAttr(settings.paymentDateColumn)}" /></div>
         <div class="row"><label for="amountColumn">金額列（優先）</label><input id="amountColumn" type="text" value="${escapeHtmlAttr(settings.amountColumn)}" /></div>
         <div class="row"><label for="amountFallbackColumn">金額列（代替）</label><input id="amountFallbackColumn" type="text" value="${escapeHtmlAttr(settings.amountFallbackColumn)}" /></div>
         <div class="row"><label for="detailColumns">detailTextに連結する列</label><textarea id="detailColumns">${escapeHtmlText(settings.detailColumns.join("\n"))}</textarea></div>
@@ -7191,6 +7479,8 @@ function buildMappingAdminHtml(): string {
         profileId: value("profileId"),
         projectTitleSource: value("projectTitleSource"),
         projectTitleManualValue: value("projectTitleManualValue"),
+        requesterSlackUserIdColumn: value("requesterSlackUserIdColumn"),
+        orderDateColumn: value("orderDateColumn"),
         vendorLookupColumn: value("vendorLookupColumn"),
         vendorCodeColumn: value("vendorCodeColumn"),
         itemNameColumn: value("itemNameColumn"),
@@ -7199,6 +7489,7 @@ function buildMappingAdminHtml(): string {
         finalDeadlineColumn: value("finalDeadlineColumn"),
         quantityColumn: value("quantityColumn"),
         unitPriceColumn: value("unitPriceColumn"),
+        paymentDateColumn: value("paymentDateColumn"),
         amountColumn: value("amountColumn"),
         amountFallbackColumn: value("amountFallbackColumn"),
         detailColumns: value("detailColumns"),
@@ -10411,7 +10702,9 @@ function sharedAdminCss(): string {
 function formatAdminDate(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("ja-JP");
+  return date.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+  });
 }
 
 function escapeHtmlAttr(value: string): string {
@@ -10497,8 +10790,6 @@ function buildLocalWorkflowDiagnostics(runtimeStatus: ReturnType<typeof getLocal
   const componentMap = new Map(runtimeStatus.components.map((component) => [component.key, component]));
   const dbReady = isComponentOperational(componentMap.get("db")?.severity);
   const backlogReady = isComponentOperational(componentMap.get("backlogConfig")?.severity);
-  const pollerReady = isComponentOperational(componentMap.get("poller")?.severity);
-
   const checks = [
     {
       key: "csv",
@@ -10533,7 +10824,7 @@ function buildLocalWorkflowDiagnostics(runtimeStatus: ReturnType<typeof getLocal
     {
       key: "royalty",
       label: "利用許諾料計算",
-      requires: [dbReady, backlogReady, pollerReady],
+      requires: [dbReady, backlogReady],
       envs: ["BACKLOG_FIELD_LICENSE_KEY", "BACKLOG_FIELD_COMPLETION_DATE"],
       detail: "ライセンス紐付けと製造/報告情報、DB 保存が使えれば進めます。",
       hint: "/admin/workflow/royalty を利用",
@@ -10574,7 +10865,6 @@ function describeRuntimeGap(
 ): string {
   const db = componentMap.get("db");
   const backlogConfig = componentMap.get("backlogConfig");
-  const poller = componentMap.get("poller");
 
   if (checkKey === "csv" && !isComponentOperational(db?.severity)) {
     return "DB が未接続のため、取込後の保存に進めません。";
@@ -10585,9 +10875,6 @@ function describeRuntimeGap(
   if (checkKey === "royalty") {
     if (!isComponentOperational(backlogConfig?.severity)) {
       return "Backlog 設定差分があり、ライセンス紐付けに支障が出る可能性があります。";
-    }
-    if (!isComponentOperational(poller?.severity)) {
-      return "Backlog Poller が不安定なため、最新同期結果の確認が必要です。";
     }
   }
   return "依存コンポーネントに未準備があります。";

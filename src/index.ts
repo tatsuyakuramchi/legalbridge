@@ -62,12 +62,12 @@ const shouldStartSlackApp = !skipSlackStartup && hasSlackBotToken && hasSlackApp
 if (!enableSlackStartup) {
   updateLocalComponentStatus("slack", {
     severity: "disabled",
-    detail: "ENABLE_SLACK_STARTUP 未設定のため Slack Socket Mode は起動しません。",
+    detail: "このサービスでは Slack の常駐受付を起動しません。Slack 受付は gateway サービス側で処理します。",
   });
 } else if (skipSlackStartup) {
   updateLocalComponentStatus("slack", {
     severity: "disabled",
-    detail: "SKIP_SLACK_STARTUP=1 のため Slack Socket Mode を起動しません。",
+    detail: "このサービスでは Slack の常駐受付を起動しません。Slack 受付は gateway サービス側で処理します。",
   });
 }
 
@@ -81,19 +81,19 @@ if (!enableBacklogStartupCheck) {
 if (!enableBackgroundSync) {
   updateLocalComponentStatus("scheduler", {
     severity: "disabled",
-    detail: "ENABLE_BACKGROUND_SYNC 未設定のため Scheduler は起動しません。",
+    detail: "このサービスでは定期実行を行いません。定期処理は work-service 側で実行します。",
   });
   updateLocalComponentStatus("poller", {
     severity: "disabled",
-    detail: "ENABLE_BACKGROUND_SYNC 未設定のため Backlog Poller は起動しません。",
+    detail: "このサービスでは Backlog 同期ジョブを実行しません。必要な同期は webhook または work-service 側で処理します。",
   });
 }
 
 if (!skipSlackStartup && !shouldStartSlackApp) {
-  console.warn("⚠️  Slack App は未起動です。SLACK_BOT_TOKEN または SLACK_APP_TOKEN が未設定のため、Backlog / Local / DB のみで動作します。");
+  console.warn("⚠️  Slack App は未起動です。このサービスは管理UI用途で動作し、Slack 受付は gateway サービス側で処理します。");
   updateLocalComponentStatus("slack", {
     severity: "disabled",
-    detail: "Slack token 未設定のため Local は Backlog 主体モードで起動します。",
+    detail: "このサービスは管理UI用途で動作し、Slack 受付は gateway サービス側で処理します。",
   });
 }
 
@@ -101,11 +101,11 @@ const missingBacklogEnv = BACKLOG_ENV.filter((k) => !process.env[k]);
 if (missingBacklogEnv.length > 0) {
   console.warn("⚠️  Backlog 用の環境変数が未設定です。");
   missingBacklogEnv.forEach((k) => console.warn(`   - ${k}`));
-  console.warn("   ローカルUI / DB は起動しますが、Backlog 連携が必要な機能は利用時に失敗します。");
+  console.warn("   管理UI と DB は起動しますが、Backlog 連携が必要な機能は利用時に失敗します。");
   if (!enableBacklogStartupCheck) {
     updateLocalComponentStatus("backlogConfig", {
       severity: "disabled",
-      detail: `Backlog 環境変数未設定 (${missingBacklogEnv.join(", ")}) のため、起動時チェックは行いません。`,
+      detail: `Backlog 環境変数未設定 (${missingBacklogEnv.join(", ")}) のため、Backlog 前提機能は利用できません。`,
       meta: {
         missingEnv: missingBacklogEnv,
       },
@@ -114,23 +114,21 @@ if (missingBacklogEnv.length > 0) {
 }
 
 // ================================================================
-// Slack App（Socket Mode で起動 = ポート不要・ngrok不要）
+// Slack App（必要な構成でのみ有効化）
 // ================================================================
 const slackApp = shouldStartSlackApp
   ? new App({
       token: process.env.SLACK_BOT_TOKEN!,
       appToken: process.env.SLACK_APP_TOKEN!,
       signingSecret: process.env.SLACK_SIGNING_SECRET!,
-      socketMode: true,  // ← ローカル開発のキモ。公開URLが不要になる
+      socketMode: true,
       logLevel: process.env.LOG_LEVEL === "debug" ? LogLevel.DEBUG : LogLevel.INFO,
     })
   : null;
 
 // ================================================================
-// Express（Local Admin UI / Optional Backlog Webhook）
-// Local の主用途は Admin UI と文書生成補助です。
-// Backlog webhook をローカルで直接受けたい場合のみ、
-// HTTPS 公開 URL（ngrok など）を追加で用意してください。
+// Express（Admin UI / Optional Backlog Webhook）
+// Admin UI と文書生成補助のための HTTP サービス。
 // ================================================================
 const expressApp = express();
 expressApp.use(express.json({ limit: "20mb" }));
@@ -273,13 +271,11 @@ void (async () => {
     updateLocalComponentStatus("backlogConfig", {
       severity: backlogValidation.blockingIssues.length > 0
         ? "warning"
-        : backlogValidation.warnings.length > 0
-          ? "warning"
-          : "ok",
+        : "ok",
       detail: backlogValidation.blockingIssues.length > 0
         ? `Backlog 設定に blocking issue があります (${backlogValidation.blockingIssues.length}件)。`
         : backlogValidation.warnings.length > 0
-          ? `Backlog 設定に warning があります (${backlogValidation.warnings.length}件)。`
+          ? `Backlog の必須設定は満たしています。拡張設定に warning があります (${backlogValidation.warnings.length}件)。`
           : "Backlog 設定差分はありません。",
       success: backlogValidation.blockingIssues.length === 0 && backlogValidation.warnings.length === 0,
       meta: {
@@ -290,18 +286,18 @@ void (async () => {
     });
   }
 
-  // Express起動（Local Admin UI / Optional Backlog Webhook）
+  // Express起動（Admin UI / Optional Backlog Webhook）
   await listenExpress(expressApp, port);
-  console.log(`\n🚀 LegalBridge プロトタイプ起動`);
-  console.log(`   Admin UI: http://localhost:${port}/admin`);
-  console.log(`   Backlog Webhook (optional): http://localhost:${port}/webhook/backlog`);
-  console.log(`   ヘルスチェック: http://localhost:${port}/health`);
-  console.log(`   Readiness: http://localhost:${port}/ready`);
-  console.log(`   Runtime Status: http://localhost:${port}/status`);
-  console.log(`   CSV一括発注UI: http://localhost:${port}/admin/orders/csv`);
+  console.log(`\n🚀 LegalBridge Admin UI service started`);
+  console.log(`   Admin UI route: /admin`);
+  console.log(`   CSV一括発注UI: /admin/orders/csv`);
+  console.log(`   Health: /health`);
+  console.log(`   Readiness: /ready`);
+  console.log(`   Runtime Status: /status`);
+  console.log(`   Backlog Webhook route: /webhook/backlog`);
   updateLocalComponentStatus("http", {
     severity: "ok",
-    detail: `ローカル HTTP サーバーが ${port} 番で起動しています。`,
+    detail: `Admin UI サービスがポート ${port} で稼働しています。`,
     success: true,
     meta: {
       port,
@@ -313,22 +309,22 @@ void (async () => {
   if (shouldStartSlackApp && slackApp) {
     try {
       await slackApp.start();
-      console.log(`   Slack Bot: Socket Mode で接続済み ✅`);
+      console.log(`   Slack Bot: 常駐接続済み ✅`);
       updateLocalComponentStatus("slack", {
         severity: "ok",
-        detail: "Slack Socket Mode に接続しています。",
+        detail: "このサービスで Slack 常駐受付を有効にしています。",
         success: true,
       });
     } catch (error) {
-      const detail = logStartupError("Slack Socket Mode 起動", error);
+      const detail = logStartupError("Slack 常駐受付 起動", error);
       updateLocalComponentStatus("slack", {
         severity: "warning",
-        detail: `Slack Socket Mode を起動できませんでした。${detail}`,
+        detail: `Slack 常駐受付を起動できませんでした。${detail}`,
         error: true,
       });
     }
   } else {
-    console.log(`   Slack Bot: 未接続（Backlog 主体モード）`);
+    console.log(`   Slack Bot: このサービスでは未接続（gateway 側で常駐受付）`);
   }
 
   // 支払期限アラートのスケジューラー起動
@@ -338,7 +334,7 @@ void (async () => {
         onStarted: ({ intervalHours }) => {
           updateLocalComponentStatus("scheduler", {
             severity: "ok",
-            detail: `Scheduler を ${intervalHours} 時間間隔で起動しました。`,
+            detail: `定期ジョブを ${intervalHours} 時間間隔で起動しました。`,
             success: true,
             meta: { intervalHours },
           });
@@ -346,7 +342,7 @@ void (async () => {
         onRunSuccess: (summary) => {
           updateLocalComponentStatus("scheduler", {
             severity: "ok",
-            detail: "Scheduler の定期実行が完了しました。",
+            detail: "定期ジョブの実行が完了しました。",
             success: true,
             meta: summary,
           });
@@ -360,7 +356,7 @@ void (async () => {
         },
       });
     } catch (error) {
-      const detail = logStartupError("Scheduler 起動", error);
+      const detail = logStartupError("定期ジョブ 起動", error);
       updateLocalComponentStatus("scheduler", {
         severity: "error",
         detail,
@@ -376,7 +372,7 @@ void (async () => {
         onStarted: ({ intervalSec }) => {
           updateLocalComponentStatus("poller", {
             severity: "ok",
-            detail: `Backlog Poller を ${intervalSec} 秒間隔で起動しました。`,
+            detail: `Backlog 同期ジョブを ${intervalSec} 秒間隔で起動しました。`,
             success: true,
             meta: { intervalSec },
           });
@@ -385,8 +381,8 @@ void (async () => {
           updateLocalComponentStatus("poller", {
             severity: summary.failedCount > 0 ? "warning" : "ok",
             detail: summary.failedCount > 0
-              ? `Backlog Poller は完了しましたが、${summary.failedCount} 件の課題処理に失敗しました。`
-              : "Backlog Poller の定期実行が完了しました。",
+              ? `Backlog 同期ジョブは完了しましたが、${summary.failedCount} 件の課題処理に失敗しました。`
+              : "Backlog 同期ジョブの実行が完了しました。",
             success: summary.failedCount === 0,
             meta: summary,
           });
@@ -400,7 +396,7 @@ void (async () => {
         },
       });
     } catch (error) {
-      const detail = logStartupError("Backlog Poller 起動", error);
+      const detail = logStartupError("Backlog 同期ジョブ 起動", error);
       updateLocalComponentStatus("poller", {
         severity: "error",
         detail,
@@ -409,15 +405,14 @@ void (async () => {
     }
   }
 
-  console.log(`\n📋 登録済みコマンド:`);
+  console.log(`\n📋 利用可能な導線:`);
   console.log(`   /法務依頼      - 依頼フォームを開く`);
   console.log(`   /法務ステータス LEGAL-XX - 案件の進捗確認`);
   console.log(`   /法務一覧      - 直近の案件一覧`);
-  console.log(`\nℹ️  通常のローカル利用では ngrok は不要です。`);
-  console.log(`   Backlog webhook をこのPCで直接受けたい場合のみ、HTTPS 公開 URL を追加してください。`);
-  console.log(`   例: npx ngrok http ${port}\n`);
+  console.log(`\nℹ️  このサービスでは管理UIと補助 API を提供します。`);
+  console.log(`   定期実行は work-service、Slack 常駐受付は gateway サービス側で処理します。\n`);
 })().catch((error) => {
-  const detail = logStartupError("ローカルアプリ起動", error);
+  const detail = logStartupError("Admin UI サービス起動", error);
   updateLocalComponentStatus("http", {
     severity: "error",
     detail,

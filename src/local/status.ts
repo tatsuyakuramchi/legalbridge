@@ -20,7 +20,7 @@ export interface LocalComponentStatus {
 }
 
 export interface LocalRuntimeStatus {
-  service: "local-app";
+  service: "admin-ui";
   mode: "active" | "degraded";
   ready: boolean;
   updatedAt: string;
@@ -28,12 +28,12 @@ export interface LocalRuntimeStatus {
 }
 
 const COMPONENT_LABELS: Record<LocalComponentKey, string> = {
-  http: "HTTP / Admin UI",
+  http: "Admin UI",
   db: "Database",
   backlogConfig: "Backlog Config",
-  slack: "Slack Socket Mode",
-  scheduler: "Scheduler",
-  poller: "Backlog Poller",
+  slack: "Slack Intake",
+  scheduler: "Scheduled Jobs",
+  poller: "Backlog Sync Job",
 };
 
 const runtimeState = new Map<LocalComponentKey, LocalComponentStatus>(
@@ -80,7 +80,7 @@ export function getLocalRuntimeStatus(): LocalRuntimeStatus {
   const mode = hasBlockingError || hasPending ? "degraded" : "active";
   const ready = !hasBlockingError && !hasPending;
   return {
-    service: "local-app",
+    service: "admin-ui",
     mode,
     ready,
     updatedAt: new Date().toISOString(),
@@ -110,7 +110,7 @@ export function renderLocalRuntimeStatusHtml(status: LocalRuntimeStatus): string
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LegalBridge Local Status</title>
+    <title>LegalBridge Admin Runtime</title>
     <style>
       :root {
         --bg: #f7f3ee;
@@ -205,8 +205,8 @@ export function renderLocalRuntimeStatusHtml(status: LocalRuntimeStatus): string
   <body>
     <main class="wrap">
       <section class="hero">
-        <h1>LegalBridge Local Runtime</h1>
-        <p class="sub">Local UI / Worker / DB の現在状態を表示します。運用時は <code>/ready</code> で可否、<code>/status.json</code> で構造化情報を確認できます。</p>
+        <h1>LegalBridge Admin Runtime</h1>
+        <p class="sub">管理UIサービスの現在状態を表示します。運用時は <code>/ready</code> で可否、<code>/status.json</code> で構造化情報を確認できます。</p>
         <div class="summary">
           <span class="pill ${status.mode === "degraded" ? "pill-degraded" : ""}">mode: ${status.mode}</span>
           <span class="pill ${status.ready ? "" : "pill-degraded"}">ready: ${String(status.ready)}</span>

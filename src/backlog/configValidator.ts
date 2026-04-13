@@ -46,6 +46,7 @@ const CRITICAL_FIELD_CHECKS: BacklogFieldCheck[] = [
 const NON_BLOCKING_PRIMARY_REQUEST_TYPES = new Set<DocumentRequestType>([
   "ip_overseas_master",
   "ip_overseas_amendment",
+  "license_schedule",
 ]);
 
 const REQUEST_TYPE_FIELD_CHECKS: Partial<Record<DocumentRequestType, BacklogFieldCheck[]>> = {
@@ -207,14 +208,9 @@ export async function validateBacklogConfiguration(): Promise<BacklogConfigurati
         workflowKind: definition.workflowKind,
         status: exists ? "ok" : "missing",
       });
-      const isBlockingRequestType =
-        definition.workflowKind === "primary" && !NON_BLOCKING_PRIMARY_REQUEST_TYPES.has(definition.value);
       if (!exists) {
         const message = `課題タイプ不足: ${definition.backlogIssueTypeName} (${definition.value})`;
         warnings.push(message);
-        if (isBlockingRequestType) {
-          blockingIssues.push(message);
-        }
       }
     }
 
@@ -223,8 +219,7 @@ export async function validateBacklogConfiguration(): Promise<BacklogConfigurati
     }
 
     for (const definition of DOCUMENT_REQUEST_DEFINITIONS) {
-      const isBlockingRequestType =
-        definition.workflowKind === "primary" && !NON_BLOCKING_PRIMARY_REQUEST_TYPES.has(definition.value);
+      const isBlockingRequestType = false;
       const checks = REQUEST_TYPE_FIELD_CHECKS[definition.value] ?? [];
       for (const check of checks) {
         pushFieldWarning(

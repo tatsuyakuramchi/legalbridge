@@ -110,12 +110,16 @@ function Ensure-SecretVersion {
 function Build-SecretBindingArg {
   param(
     [Parameter(Mandatory = $true)]
-    [hashtable]$Secrets
+    [hashtable]$Secrets,
+    [hashtable]$MountedSecrets = @{}
   )
 
   $pairs = @()
   foreach ($key in $Secrets.Keys) {
     $pairs += "${key}=${key}:latest"
+  }
+  foreach ($mountPath in $MountedSecrets.Keys) {
+    $pairs += "${mountPath}=$($MountedSecrets[$mountPath]):latest"
   }
   return ($pairs -join ",")
 }
@@ -133,11 +137,19 @@ try {
     throw "Secret file is empty: $secretFilePath"
   }
 
+  $mountedSecrets = [ordered]@{}
+  if ($secretValues.Contains("GOOGLE_SERVICE_ACCOUNT_KEY_JSON")) {
+    $mountedSecrets["/secrets/gws-service-account.json"] = "GOOGLE_SERVICE_ACCOUNT_KEY_JSON"
+    $driveServiceAccountJson = [string]$secretValues["GOOGLE_SERVICE_ACCOUNT_KEY_JSON"]
+    $secretValues.Remove("GOOGLE_SERVICE_ACCOUNT_KEY_JSON")
+    Ensure-SecretVersion -ProjectId $ProjectId -SecretName "GOOGLE_SERVICE_ACCOUNT_KEY_JSON" -SecretValue $driveServiceAccountJson
+  }
+
   foreach ($secretName in $secretValues.Keys) {
     Ensure-SecretVersion -ProjectId $ProjectId -SecretName $secretName -SecretValue ([string]$secretValues[$secretName])
   }
 
-  $secretBindings = Build-SecretBindingArg -Secrets $secretValues
+  $secretBindings = Build-SecretBindingArg -Secrets $secretValues -MountedSecrets $mountedSecrets
 
   & gcloud artifacts repositories describe $RepositoryName --location $Region | Out-Null
   if ($LASTEXITCODE -ne 0) {
@@ -164,6 +176,9 @@ try {
   )
   if ($ServiceAccountEmail) {
     $deployArgs += @("--service-account", $ServiceAccountEmail)
+  }
+  if ($mountedSecrets.Count -gt 0) {
+    $deployArgs += @("--update-env-vars", "GOOGLE_SERVICE_ACCOUNT_KEY_PATH=/secrets/gws-service-account.json")
   }
   & gcloud @deployArgs
   if ($LASTEXITCODE -ne 0) { throw "gcloud run deploy failed." }

@@ -1,0 +1,30 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY src ./src
+COPY prisma ./prisma
+COPY templates ./templates
+COPY data ./data
+
+RUN npx prisma generate
+RUN npm run build
+
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV ENABLE_SLACK_STARTUP=0
+ENV ENABLE_BACKLOG_STARTUP_CHECK=1
+ENV ENABLE_BACKGROUND_SYNC=0
+ENV SKIP_SLACK_STARTUP=1
+
+EXPOSE 8080
+
+CMD ["node", "dist/index.js"]

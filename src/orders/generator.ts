@@ -31,11 +31,11 @@ export async function generateOrderDocumentsFromIssue(issue: BacklogIssue): Prom
 
   const refreshedItems = await getOrderItems(legalRequest.id);
   const documentDateText = resolveIssueDocumentDate(issue);
-  const orderDate = getDateValue(documentDateText) ?? new Date(issue.created);
+  const planningContext = issue.issueType?.name === "企画発注書" ? loadPlanningImportContext(issue.issueKey) : null;
+  const orderDate = getDateValue(planningContext?.orderDate) ?? getDateValue(documentDateText) ?? new Date(issue.created);
   const dueDate = resolveOrderDeliveryDeadline(issue);
   const hasBaseContract = Boolean(getCustomFieldValue(issue, process.env.BACKLOG_FIELD_MASTER_CONTRACT_REF));
-  const planningContext = issue.issueType?.name === "企画発注書" ? loadPlanningImportContext(issue.issueKey) : null;
-  const requesterSlackId = resolveRequesterSlackId(issue, legalRequest);
+  const requesterSlackId = planningContext?.requesterSlackUserId ?? resolveRequesterSlackId(issue, legalRequest);
   const staff = requesterSlackId ? await findStaffBySlackUserId(requesterSlackId) : null;
   const documentNumber = await resolveIssueDocumentNumber(backlog, issue, {
     partyAName: staff?.partyAName,
@@ -185,6 +185,9 @@ async function renderPlanningDocumentsByVendor(input: {
   const rendered = [];
   for (const [vendorCode, groupItems] of groups.entries()) {
     const groupContext = input.planningContext?.groups.find((group) => group.vendorCode === vendorCode);
+    const groupStaff = groupContext?.requesterSlackUserId
+      ? await findStaffBySlackUserId(groupContext.requesterSlackUserId)
+      : input.staff;
     const vendor = await matchVendor({
       vendorCode: vendorCode !== "UNKNOWN" ? vendorCode : undefined,
       vendorName: groupContext?.vendorLookupValue ?? input.legalRequest.counterparty,
@@ -208,13 +211,13 @@ async function renderPlanningDocumentsByVendor(input: {
       VENDOR_EMAIL: vendor?.email ?? "",
       VENDOR_CONTACT_NAME: getCustomFieldValue(input.issue, process.env.BACKLOG_FIELD_VENDOR_ACCEPT_NAME) ?? vendor?.contactName ?? "",
       VENDOR_CONTACT_DEPARTMENT: getCustomFieldValue(input.issue, process.env.BACKLOG_FIELD_VENDOR_CONTACT_DEPARTMENT) ?? vendor?.contactDepartment ?? "",
-      PARTY_A_NAME: input.staff?.partyAName ?? "株式会社アークライト",
-      PARTY_A_ADDRESS: input.staff?.partyAAddress ?? "〒101-0052 東京都千代田区神田小川町1-2 風雲堂ビル2階",
-      PARTY_A_REP: input.staff?.partyARep ?? "代表取締役 青柳昌行",
-      STAFF_DEPARTMENT: input.staff?.department ?? "",
-      STAFF_NAME: input.staff?.staffName ?? "",
-      STAFF_PHONE: input.staff?.phone ?? "",
-      STAFF_EMAIL: input.staff?.email ?? "",
+      PARTY_A_NAME: groupStaff?.partyAName ?? "株式会社アークライト",
+      PARTY_A_ADDRESS: groupStaff?.partyAAddress ?? "〒101-0052 東京都千代田区神田小川町1-2 風雲堂ビル2階",
+      PARTY_A_REP: groupStaff?.partyARep ?? "代表取締役 青柳昌行",
+      STAFF_DEPARTMENT: groupStaff?.department ?? "",
+      STAFF_NAME: groupStaff?.staffName ?? "",
+      STAFF_PHONE: groupStaff?.phone ?? "",
+      STAFF_EMAIL: groupStaff?.email ?? "",
       BANK_INFO: getCustomFieldValue(input.issue, process.env.BACKLOG_FIELD_BANK_INFO) ?? vendor?.bankInfo ?? "",
       BANK_NAME: getCustomFieldValue(input.issue, process.env.BACKLOG_FIELD_BANK_NAME) ?? vendor?.bankName ?? "",
       BRANCH_NAME: getCustomFieldValue(input.issue, process.env.BACKLOG_FIELD_BRANCH_NAME) ?? vendor?.branchName ?? "",
@@ -246,7 +249,7 @@ async function renderPlanningDocumentsByVendor(input: {
         unitPrice: item.unitPrice ?? item.latestAmount,
         amount: item.latestAmount,
         detailText: item.spec ?? "",
-        payment_date: input.planningContext?.paymentDateLabel ?? getPaymentDateLabel(item.latestDueDate),
+        payment_date: groupContext?.paymentDateLabel ?? input.planningContext?.paymentDateLabel ?? getPaymentDateLabel(item.latestDueDate),
         deliveryDateStr: input.planningContext?.firstDraftDeadlineLabel ?? formatDeliveryDate(item.latestDueDate),
         rightsLabel: input.planningContext?.rightsLabel ?? "発注書",
         transfer_fee: input.planningContext?.transferFee ?? "報酬に含む",

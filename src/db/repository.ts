@@ -9,7 +9,7 @@
 import prisma from "./client";
 import { RoyaltyCalculationResult } from "../documents/royalty";
 import { Prisma } from "@prisma/client";
-import { BacklogIssue } from "../backlog/client";
+import { BacklogIssue, backlog } from "../backlog/client";
 
 const WORK_EXECUTION_RUNNING_TTL_MS = 10 * 60 * 1000;
 
@@ -831,7 +831,7 @@ export async function getLicenseDashboard() {
 }
 
 export async function getAdminDashboardSnapshot(limit = 6) {
-  const [recentWorkflows, statusGroups, recentStatusItems, recentGeneratedDocs, attentionWorkflows, syncFailures] = await Promise.all([
+  const [recentWorkflows, statusGroups, recentStatusItems, recentGeneratedDocs, attentionWorkflows, syncFailures, recentBacklogSyncRuns, workflowSummaries, liveBacklogIssues] = await Promise.all([
     prisma.issueWorkflow.findMany({
       orderBy: [{ updatedAt: "desc" }],
       take: limit,
@@ -851,35 +851,24 @@ export async function getAdminDashboardSnapshot(limit = 6) {
         primaryDocumentUrl: true,
       },
     }),
-    prisma.issueWorkflow.groupBy({
-      by: ["currentStatusName"],
+    prisma.backlogSyncState.groupBy({
+      by: ["statusName"],
       _count: {
         _all: true,
       },
-      where: {
-        currentStatusName: {
-          not: null,
-        },
-      },
       orderBy: {
         _count: {
-          currentStatusName: "desc",
+          statusName: "desc",
         },
       },
     }),
-    prisma.issueWorkflow.findMany({
-      where: {
-        currentStatusName: {
-          not: null,
-        },
-      },
+    prisma.backlogSyncState.findMany({
       orderBy: [{ updatedAt: "desc" }],
-      take: Math.max(limit * 2, 10),
+      take: Math.max(limit * 5, 50),
       select: {
         backlogIssueKey: true,
         issueTypeName: true,
-        currentStatusName: true,
-        currentSummary: true,
+        statusName: true,
         updatedAt: true,
       },
     }),
@@ -947,7 +936,41 @@ export async function getAdminDashboardSnapshot(limit = 6) {
         lastProcessingError: true,
       },
     }),
+    prisma.backlogSyncRun.findMany({
+      orderBy: [{ createdAt: "desc" }],
+      take: limit,
+      select: {
+        triggerSource: true,
+        status: true,
+        issueCount: true,
+        changedCount: true,
+        processedCount: true,
+        failedCount: true,
+        bootstrapped: true,
+        errorMessage: true,
+        createdAt: true,
+      },
+    }),
+    prisma.issueWorkflow.findMany({
+      select: {
+        backlogIssueKey: true,
+        currentSummary: true,
+      },
+    }),
+    backlog.listAllIssues().catch(() => [] as BacklogIssue[]),
   ]);
+
+  const workflowSummaryMap = new Map(
+    workflowSummaries.map((item) => [item.backlogIssueKey, item.currentSummary]),
+  );
+  const liveStatusSummary = summarizeBacklogStatusSummary(liveBacklogIssues);
+  const liveRecentStatusItems = liveBacklogIssues.map((item) => ({
+    issueKey: item.issueKey,
+    issueTypeName: item.issueType?.name ?? null,
+    currentStatusName: item.status?.name ?? null,
+    summary: item.summary || (workflowSummaryMap.get(item.issueKey) ?? null),
+    updatedAt: new Date(item.updated),
+  }));
 
   return {
     recentWorkflows: recentWorkflows.map((workflow) => ({
@@ -959,17 +982,21 @@ export async function getAdminDashboardSnapshot(limit = 6) {
       activityLabel: resolveWorkflowActivityLabel(workflow),
       hasPrimaryDocument: Boolean(workflow.primaryDocumentUrl),
     })),
-    statusSummary: statusGroups.map((group) => ({
-      statusName: group.currentStatusName ?? "未設定",
-      count: group._count._all,
-    })),
-    recentStatusItems: recentStatusItems.map((item) => ({
-      issueKey: item.backlogIssueKey,
-      issueTypeName: item.issueTypeName,
-      currentStatusName: item.currentStatusName,
-      summary: item.currentSummary,
-      updatedAt: item.updatedAt,
-    })),
+    statusSummary: liveStatusSummary.length > 0
+      ? liveStatusSummary
+      : statusGroups.map((group) => ({
+        statusName: group.statusName ?? "未設定",
+        count: group._count._all,
+      })),
+    recentStatusItems: (liveRecentStatusItems.length > 0
+      ? liveRecentStatusItems
+      : recentStatusItems.map((item) => ({
+        issueKey: item.backlogIssueKey,
+        issueTypeName: item.issueTypeName,
+        currentStatusName: item.statusName,
+        summary: workflowSummaryMap.get(item.backlogIssueKey) ?? null,
+        updatedAt: item.updatedAt,
+      }))).slice(0, Math.max(limit * 5, 50)),
     recentGeneratedDocuments: recentGeneratedDocs.flatMap((workflow) => {
       const documents = Array.isArray(workflow.generatedDocuments)
         ? workflow.generatedDocuments as Array<{ name?: string; url?: string; localPath?: string }>
@@ -1003,7 +1030,30 @@ export async function getAdminDashboardSnapshot(limit = 6) {
         kind: "sync" as const,
       })),
     ].slice(0, Math.max(limit * 2, 8)),
+    recentBacklogSyncRuns: recentBacklogSyncRuns.map((item) => ({
+      triggerSource: item.triggerSource,
+      status: item.status,
+      issueCount: item.issueCount,
+      changedCount: item.changedCount,
+      processedCount: item.processedCount,
+      failedCount: item.failedCount,
+      bootstrapped: item.bootstrapped,
+      errorMessage: item.errorMessage,
+      createdAt: item.createdAt,
+    })),
   };
+}
+
+function summarizeBacklogStatusSummary(items: BacklogIssue[]): Array<{ statusName: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const statusName = String(item.status?.name ?? "未設定");
+    counts.set(statusName, (counts.get(statusName) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([statusName, count]) => ({ statusName, count }))
+    .sort((left, right) => right.count - left.count);
 }
 
 function resolveWorkflowActivityLabel(workflow: {
@@ -1092,6 +1142,30 @@ export async function markBacklogSyncFailed(issueKey: string, error: string) {
 export async function findBacklogSyncState(issueKey: string) {
   return prisma.backlogSyncState.findUnique({
     where: { backlogIssueKey: issueKey },
+  });
+}
+
+export async function createBacklogSyncRun(input: {
+  triggerSource: string;
+  status: "SUCCEEDED" | "FAILED";
+  issueCount?: number;
+  changedCount?: number;
+  processedCount?: number;
+  failedCount?: number;
+  bootstrapped?: boolean;
+  errorMessage?: string | null;
+}) {
+  return prisma.backlogSyncRun.create({
+    data: {
+      triggerSource: input.triggerSource,
+      status: input.status,
+      issueCount: input.issueCount ?? 0,
+      changedCount: input.changedCount ?? 0,
+      processedCount: input.processedCount ?? 0,
+      failedCount: input.failedCount ?? 0,
+      bootstrapped: input.bootstrapped ?? false,
+      errorMessage: input.errorMessage ? input.errorMessage.slice(0, 2000) : null,
+    },
   });
 }
 
