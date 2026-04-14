@@ -828,20 +828,50 @@ export function registerSlackHandlers(app: App): void {
         deadline,
         notes: effectiveContractType === "outsourcing" ? outsourcingNotes : notes,
         documentDraft:
-          effectiveContractType === "ip_overseas_master" || effectiveContractType === "ip_overseas_amendment"
-            ? {
-                LICENSE_SCOPE: licenseScope,
-                IP_PRODUCT_SCOPE: ipProductScope,
-                ROYALTY_TERMS: royaltyTerms,
-                SUBLICENSE_ALLOWED: sublicenseAllowed,
-                TITLE_TRANSFER_MODEL: titleTransferModel,
-                INVENTORY_SELLOFF: inventorySelloff,
-                SPECIAL_NOTES: specialNotes,
-                SCHEDULE_1_SUMMARY: schedule1Summary,
-                SCHEDULE_1_SPECIAL_PROVISIONS: schedule1SpecialProvisions,
-                SCHEDULE_2_SUMMARY: schedule2Summary,
-                SCHEDULE_2_SPECIAL_PROVISIONS: schedule2SpecialProvisions,
-              }
+          requestDefinition?.dataOwner === "db" && requestDefinition.workflowKind === "primary"
+            ? buildSlackDocumentDraft({
+                requestType: effectiveContractType,
+                requestSummary: summary,
+                contractDate,
+                contractNo,
+                counterparty,
+                counterpartyAddress,
+                counterpartyRepresentative,
+                remarks,
+                contractPeriod,
+                confidentialityPeriod,
+                ndaPurpose,
+                jurisdiction,
+                originalWork,
+                originalAuthor,
+                creditName,
+                licenseIssueKey,
+                licenseTypeName,
+                licenseStart,
+                territory,
+                projectTitle,
+                licenseScope,
+                ipProductScope,
+                royaltyTerms,
+                sublicenseAllowed,
+                titleTransferModel,
+                inventorySelloff,
+                specialNotes,
+                schedule1Summary,
+                schedule1SpecialProvisions,
+                schedule2Summary,
+                schedule2SpecialProvisions,
+                productScope,
+                deliveryLocation,
+                inspectionPeriodDays,
+                paymentConditionSummary,
+                warrantyPeriod,
+                monthlyClosingDay,
+                paymentDueDay,
+                paymentMethod,
+                securityDepositAmount,
+                depositReplenishDays,
+              })
             : undefined,
         requestDefinitionText: requestDefinition?.text ?? effectiveContractType,
       });
@@ -1312,7 +1342,7 @@ async function maybeCreateLegalRequestRecord(input: {
   }
 
   const definition = getDocumentRequestDefinition(input.effectiveContractType);
-  if (definition?.dataOwner !== "db") {
+  if (definition?.dataOwner !== "db" || definition.workflowKind !== "primary") {
     return;
   }
 
@@ -1335,6 +1365,99 @@ async function maybeCreateLegalRequestRecord(input: {
   } catch (error) {
     input.logger.warn(`[Slack] LegalRequest保存をスキップ: ${input.issue.issueKey}`, error);
   }
+}
+
+function buildSlackDocumentDraft(input: {
+  requestType: string;
+  requestSummary: string;
+  contractDate: string;
+  contractNo: string;
+  counterparty: string;
+  counterpartyAddress: string;
+  counterpartyRepresentative: string;
+  remarks: string;
+  contractPeriod: string;
+  confidentialityPeriod: string;
+  ndaPurpose: string;
+  jurisdiction: string;
+  originalWork: string;
+  originalAuthor: string;
+  creditName: string;
+  licenseIssueKey: string;
+  licenseTypeName: string;
+  licenseStart: string;
+  territory: string;
+  projectTitle: string;
+  licenseScope: string;
+  ipProductScope: string;
+  royaltyTerms: string;
+  sublicenseAllowed: string;
+  titleTransferModel: string;
+  inventorySelloff: string;
+  specialNotes: string;
+  schedule1Summary: string;
+  schedule1SpecialProvisions: string;
+  schedule2Summary: string;
+  schedule2SpecialProvisions: string;
+  productScope: string;
+  deliveryLocation: string;
+  inspectionPeriodDays: string;
+  paymentConditionSummary: string;
+  warrantyPeriod: string;
+  monthlyClosingDay: string;
+  paymentDueDay: string;
+  paymentMethod: string;
+  securityDepositAmount: string;
+  depositReplenishDays: string;
+}): Record<string, string> {
+  const entries: Record<string, string> = {
+    REQUEST_TYPE: input.requestType,
+    REQUEST_SOURCE_MODE: "slack_modal",
+    REQUEST_SUMMARY: input.requestSummary,
+    CONTRACT_NO: input.contractNo,
+    CONTRACT_DATE: input.contractDate,
+    PARTY_B_NAME: input.counterparty,
+    PARTY_B_ADDRESS: input.counterpartyAddress,
+    PARTY_B_REPRESENTATIVE: input.counterpartyRepresentative,
+    REMARKS: input.remarks,
+    CONTRACT_PERIOD: input.contractPeriod,
+    CONFIDENTIALITY_PERIOD: input.confidentialityPeriod,
+    NDA_PURPOSE: input.ndaPurpose,
+    JURISDICTION: input.jurisdiction,
+    ORIGINAL_WORK: input.originalWork,
+    ORIGINAL_AUTHOR: input.originalAuthor,
+    CREDIT_NAME: input.creditName,
+    LICENSE_ISSUE_KEY: input.licenseIssueKey,
+    LICENSE_TYPE_NAME: input.licenseTypeName,
+    LICENSE_START: input.licenseStart,
+    LICENSE_REGION_LANGUAGE_LABEL: input.territory,
+    PROJECT_TITLE: input.projectTitle,
+    LICENSE_SCOPE: input.licenseScope,
+    IP_PRODUCT_SCOPE: input.ipProductScope,
+    ROYALTY_TERMS: input.royaltyTerms,
+    SUBLICENSE_ALLOWED: input.sublicenseAllowed,
+    TITLE_TRANSFER_MODEL: input.titleTransferModel,
+    INVENTORY_SELLOFF: input.inventorySelloff,
+    SPECIAL_TERMS: input.specialNotes,
+    SCHEDULE_1_SUMMARY: input.schedule1Summary,
+    SCHEDULE_1_SPECIAL_PROVISIONS: input.schedule1SpecialProvisions,
+    SCHEDULE_2_SUMMARY: input.schedule2Summary,
+    SCHEDULE_2_SPECIAL_PROVISIONS: input.schedule2SpecialProvisions,
+    PRODUCT_SCOPE: input.productScope,
+    DELIVERY_LOCATION: input.deliveryLocation,
+    INSPECTION_PERIOD_DAYS: input.inspectionPeriodDays,
+    PAYMENT_CONDITION_SUMMARY: input.paymentConditionSummary,
+    WARRANTY_PERIOD: input.warrantyPeriod,
+    MONTHLY_CLOSING_DAY: input.monthlyClosingDay,
+    PAYMENT_DUE_DAY: input.paymentDueDay,
+    PAYMENT_METHOD: input.paymentMethod,
+    SECURITY_DEPOSIT_AMOUNT: input.securityDepositAmount,
+    DEPOSIT_REPLENISH_DAYS: input.depositReplenishDays,
+  };
+
+  return Object.fromEntries(
+    Object.entries(entries).filter(([_, value]) => String(value ?? "").trim())
+  );
 }
 
 async function maybePostLegalChannelNotification(input: {
@@ -3142,32 +3265,29 @@ function buildBacklogCustomFields(contractType: string, values: Record<string, s
     [process.env.BACKLOG_FIELD_COUNTERPARTY ?? ""]: values.counterparty,
     [process.env.BACKLOG_FIELD_DEADLINE ?? ""]: values.deadline,
     [process.env.BACKLOG_FIELD_CONTRACT_NO ?? ""]: isOrderType ? "" : values.contractNo,
-    [process.env.BACKLOG_FIELD_COUNTERPARTY_ADDRESS ?? ""]: values.counterpartyAddress,
-    [process.env.BACKLOG_FIELD_COUNTERPARTY_REP ?? ""]: values.counterpartyRepresentative,
     [process.env.BACKLOG_FIELD_REMARKS ?? ""]: values.remarks,
     [process.env.BACKLOG_FIELD_CONTRACT_DATE ?? ""]: values.contractDate,
+    [process.env.BACKLOG_FIELD_ORDER_DATE ?? ""]: isOrderType ? values.contractDate : "",
   };
 
   if (contractType === "nda") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_NDA_PURPOSE ?? ""]: values.ndaPurpose,
       [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
-      [process.env.BACKLOG_FIELD_CONFIDENTIALITY_PERIOD ?? ""]: values.confidentialityPeriod,
     });
   }
 
   if (contractType === "outsourcing") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
   if (contractType === "license") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_ORIGINAL_WORK ?? ""]: values.originalWork,
-      [process.env.BACKLOG_FIELD_JURISDICTION ?? ""]: values.jurisdiction,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
@@ -3175,8 +3295,6 @@ function buildBacklogCustomFields(contractType: string, values: Record<string, s
     return sanitizeCustomFieldEntries({
       ...baseEntries,
       [process.env.BACKLOG_FIELD_LICENSE_KEY ?? ""]: values.licenseIssueKey,
-      [process.env.BACKLOG_FIELD_LICENSE_TYPE_NAME ?? ""]: values.licenseTypeName,
-      [process.env.BACKLOG_FIELD_ORIGINAL_WORK ?? ""]: values.originalWork,
       [process.env.BACKLOG_FIELD_LICENSE_START ?? ""]: values.licenseStart,
     });
   }
@@ -3184,136 +3302,35 @@ function buildBacklogCustomFields(contractType: string, values: Record<string, s
   if (contractType === "ip_overseas_master") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_ORIGINAL_WORK ?? ""]: values.originalWork,
       [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
-      [process.env.BACKLOG_FIELD_JURISDICTION ?? ""]: values.jurisdiction,
-      [process.env.BACKLOG_FIELD_DEAL_STRUCTURE ?? ""]: values.dealStructure,
-      [process.env.BACKLOG_FIELD_LICENSE_SCOPE ?? ""]: values.licenseScope,
-      [process.env.BACKLOG_FIELD_IP_PRODUCT_SCOPE ?? ""]: values.ipProductScope,
-      [process.env.BACKLOG_FIELD_TERRITORY ?? ""]: values.territory,
-      [process.env.BACKLOG_FIELD_EXCLUSIVITY ?? ""]: values.exclusivity,
-      [process.env.BACKLOG_FIELD_REVENUE_MODEL ?? ""]: values.revenueModel,
-      [process.env.BACKLOG_FIELD_ROYALTY_TERMS ?? ""]: values.royaltyTerms,
-      [process.env.BACKLOG_FIELD_SUBLICENSE_ALLOWED ?? ""]: values.sublicenseAllowed,
-      [process.env.BACKLOG_FIELD_TITLE_TRANSFER_MODEL ?? ""]: values.titleTransferModel,
-      [process.env.BACKLOG_FIELD_INVENTORY_SELLOFF ?? ""]: values.inventorySelloff,
-      [process.env.BACKLOG_FIELD_SPECIAL_NOTES ?? ""]: values.specialNotes,
-      [process.env.BACKLOG_FIELD_S1_ROYALTY_RATE ?? ""]: values.s1RoyaltyRate,
-      [process.env.BACKLOG_FIELD_S1_MINIMUM_GUARANTEE ?? ""]: values.s1MinimumGuarantee,
-      [process.env.BACKLOG_FIELD_S1_ADVANCE ?? ""]: values.s1Advance,
-      [process.env.BACKLOG_FIELD_S1_ACCOUNTING_PERIOD ?? ""]: values.s1AccountingPeriod,
-      [process.env.BACKLOG_FIELD_S1_PAYMENT_DUE ?? ""]: values.s1PaymentDue,
-      [process.env.BACKLOG_FIELD_S1_REPORT_DUE ?? ""]: values.s1ReportDue,
-      [process.env.BACKLOG_FIELD_S1_FX_CONVERSION ?? ""]: values.s1FxConversion,
-      [process.env.BACKLOG_FIELD_S1_FIRST_PRINT_RUN ?? ""]: values.s1FirstPrintRun,
-      [process.env.BACKLOG_FIELD_S1_TARGET_RELEASE_DATE ?? ""]: values.s1TargetReleaseDate,
-      [process.env.BACKLOG_FIELD_S1_COMPLIMENTARY_COPIES ?? ""]: values.s1ComplimentaryCopies,
-      [process.env.BACKLOG_FIELD_S1_CREDIT_WORDING ?? ""]: values.s1CreditWording,
-      [process.env.BACKLOG_FIELD_S1_TERRITORY_JURISDICTION ?? ""]: values.s1TerritoryJurisdiction,
-      [process.env.BACKLOG_FIELD_S1_CONSUMER_LAW_CARVEOUT ?? ""]: values.s1ConsumerLawCarveout,
-      [process.env.BACKLOG_FIELD_S1_VAT_GST_TREATMENT ?? ""]: values.s1VatGstTreatment,
-      [process.env.BACKLOG_FIELD_S1_COPYRIGHT_REGISTRATION ?? ""]: values.s1CopyrightRegistration,
-      [process.env.BACKLOG_FIELD_S1_MORAL_RIGHTS ?? ""]: values.s1MoralRights,
-      [process.env.BACKLOG_FIELD_S1_MANDATORY_DISTRIBUTION_LAW ?? ""]: values.s1MandatoryDistributionLaw,
-      [process.env.BACKLOG_FIELD_S1_ADDITIONAL_TERMS ?? ""]: values.s1AdditionalTerms,
-      [process.env.BACKLOG_FIELD_S2_PRODUCT_PRICE_LIST ?? ""]: values.s2ProductPriceList,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR1 ?? ""]: values.s2MprYear1,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR2 ?? ""]: values.s2MprYear2,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR3 ?? ""]: values.s2MprYear3,
-      [process.env.BACKLOG_FIELD_S2_INCOTERMS_DELIVERY ?? ""]: values.s2IncotermsDelivery,
-      [process.env.BACKLOG_FIELD_S2_ARRIVAL_POINT ?? ""]: values.s2ArrivalPoint,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_ADVANCE ?? ""]: values.s2PaymentAdvance,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_BALANCE ?? ""]: values.s2PaymentBalance,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_CURRENCY ?? ""]: values.s2PaymentCurrency,
-      [process.env.BACKLOG_FIELD_S2_TERRITORY_JURISDICTION ?? ""]: values.s2TerritoryJurisdiction,
-      [process.env.BACKLOG_FIELD_S2_IMPORT_CUSTOMS_ALLOCATION ?? ""]: values.s2ImportCustomsAllocation,
-      [process.env.BACKLOG_FIELD_S2_CONSUMER_PRODUCT_SAFETY ?? ""]: values.s2ConsumerProductSafety,
-      [process.env.BACKLOG_FIELD_S2_DISTRIBUTION_LAW_PROTECTIONS ?? ""]: values.s2DistributionLawProtections,
-      [process.env.BACKLOG_FIELD_S2_VAT_GST_SUPPLY ?? ""]: values.s2VatGstSupply,
-      [process.env.BACKLOG_FIELD_S2_PRODUCT_LIABILITY_INSURANCE ?? ""]: values.s2ProductLiabilityInsurance,
-      [process.env.BACKLOG_FIELD_S2_MARKETPLACE_ONLINE_SALES ?? ""]: values.s2MarketplaceOnlineSales,
-      [process.env.BACKLOG_FIELD_S2_ADDITIONAL_TERMS ?? ""]: values.s2AdditionalTerms,
     });
   }
 
   if (contractType === "ip_overseas_amendment") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_ORIGINAL_WORK ?? ""]: values.originalWork,
-      [process.env.BACKLOG_FIELD_DEAL_STRUCTURE ?? ""]: values.dealStructure,
-      [process.env.BACKLOG_FIELD_CHANGE_MODE ?? ""]: values.changeMode,
-      [process.env.BACKLOG_FIELD_BASE_AGREEMENT_KEY ?? ""]: values.baseAgreementKey,
-      [process.env.BACKLOG_FIELD_EFFECTIVE_DATE ?? ""]: values.effectiveDate,
-      [process.env.BACKLOG_FIELD_LICENSE_SCOPE ?? ""]: values.licenseScope,
-      [process.env.BACKLOG_FIELD_IP_PRODUCT_SCOPE ?? ""]: values.ipProductScope,
-      [process.env.BACKLOG_FIELD_TERRITORY ?? ""]: values.territory,
-      [process.env.BACKLOG_FIELD_REVENUE_MODEL ?? ""]: values.revenueModel,
-      [process.env.BACKLOG_FIELD_ROYALTY_TERMS ?? ""]: values.royaltyTerms,
-      [process.env.BACKLOG_FIELD_TITLE_TRANSFER_MODEL ?? ""]: values.titleTransferModel,
-      [process.env.BACKLOG_FIELD_INVENTORY_SELLOFF ?? ""]: values.inventorySelloff,
-      [process.env.BACKLOG_FIELD_AMENDMENT_CLAUSES ?? ""]: values.amendmentClauses,
-      [process.env.BACKLOG_FIELD_SPECIAL_NOTES ?? ""]: values.specialNotes,
-      [process.env.BACKLOG_FIELD_S1_ROYALTY_RATE ?? ""]: values.s1RoyaltyRate,
-      [process.env.BACKLOG_FIELD_S1_MINIMUM_GUARANTEE ?? ""]: values.s1MinimumGuarantee,
-      [process.env.BACKLOG_FIELD_S1_ADVANCE ?? ""]: values.s1Advance,
-      [process.env.BACKLOG_FIELD_S1_ACCOUNTING_PERIOD ?? ""]: values.s1AccountingPeriod,
-      [process.env.BACKLOG_FIELD_S1_PAYMENT_DUE ?? ""]: values.s1PaymentDue,
-      [process.env.BACKLOG_FIELD_S1_REPORT_DUE ?? ""]: values.s1ReportDue,
-      [process.env.BACKLOG_FIELD_S1_FX_CONVERSION ?? ""]: values.s1FxConversion,
-      [process.env.BACKLOG_FIELD_S1_FIRST_PRINT_RUN ?? ""]: values.s1FirstPrintRun,
-      [process.env.BACKLOG_FIELD_S1_TARGET_RELEASE_DATE ?? ""]: values.s1TargetReleaseDate,
-      [process.env.BACKLOG_FIELD_S1_COMPLIMENTARY_COPIES ?? ""]: values.s1ComplimentaryCopies,
-      [process.env.BACKLOG_FIELD_S1_CREDIT_WORDING ?? ""]: values.s1CreditWording,
-      [process.env.BACKLOG_FIELD_S1_TERRITORY_JURISDICTION ?? ""]: values.s1TerritoryJurisdiction,
-      [process.env.BACKLOG_FIELD_S1_CONSUMER_LAW_CARVEOUT ?? ""]: values.s1ConsumerLawCarveout,
-      [process.env.BACKLOG_FIELD_S1_VAT_GST_TREATMENT ?? ""]: values.s1VatGstTreatment,
-      [process.env.BACKLOG_FIELD_S1_COPYRIGHT_REGISTRATION ?? ""]: values.s1CopyrightRegistration,
-      [process.env.BACKLOG_FIELD_S1_MORAL_RIGHTS ?? ""]: values.s1MoralRights,
-      [process.env.BACKLOG_FIELD_S1_MANDATORY_DISTRIBUTION_LAW ?? ""]: values.s1MandatoryDistributionLaw,
-      [process.env.BACKLOG_FIELD_S1_ADDITIONAL_TERMS ?? ""]: values.s1AdditionalTerms,
-      [process.env.BACKLOG_FIELD_S2_PRODUCT_PRICE_LIST ?? ""]: values.s2ProductPriceList,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR1 ?? ""]: values.s2MprYear1,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR2 ?? ""]: values.s2MprYear2,
-      [process.env.BACKLOG_FIELD_S2_MPR_YEAR3 ?? ""]: values.s2MprYear3,
-      [process.env.BACKLOG_FIELD_S2_INCOTERMS_DELIVERY ?? ""]: values.s2IncotermsDelivery,
-      [process.env.BACKLOG_FIELD_S2_ARRIVAL_POINT ?? ""]: values.s2ArrivalPoint,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_ADVANCE ?? ""]: values.s2PaymentAdvance,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_BALANCE ?? ""]: values.s2PaymentBalance,
-      [process.env.BACKLOG_FIELD_S2_PAYMENT_CURRENCY ?? ""]: values.s2PaymentCurrency,
-      [process.env.BACKLOG_FIELD_S2_TERRITORY_JURISDICTION ?? ""]: values.s2TerritoryJurisdiction,
-      [process.env.BACKLOG_FIELD_S2_IMPORT_CUSTOMS_ALLOCATION ?? ""]: values.s2ImportCustomsAllocation,
-      [process.env.BACKLOG_FIELD_S2_CONSUMER_PRODUCT_SAFETY ?? ""]: values.s2ConsumerProductSafety,
-      [process.env.BACKLOG_FIELD_S2_DISTRIBUTION_LAW_PROTECTIONS ?? ""]: values.s2DistributionLawProtections,
-      [process.env.BACKLOG_FIELD_S2_VAT_GST_SUPPLY ?? ""]: values.s2VatGstSupply,
-      [process.env.BACKLOG_FIELD_S2_PRODUCT_LIABILITY_INSURANCE ?? ""]: values.s2ProductLiabilityInsurance,
-      [process.env.BACKLOG_FIELD_S2_MARKETPLACE_ONLINE_SALES ?? ""]: values.s2MarketplaceOnlineSales,
-      [process.env.BACKLOG_FIELD_S2_ADDITIONAL_TERMS ?? ""]: values.s2AdditionalTerms,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
   if (contractType === "sales_buyer") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_PRODUCT_SCOPE ?? ""]: values.productScope,
-      [process.env.BACKLOG_FIELD_PAYMENT_CONDITION_SUMMARY ?? ""]: values.paymentConditionSummary,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
   if (contractType === "sales_seller_standard") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_PRODUCT_SCOPE ?? ""]: values.productScope,
-      [process.env.BACKLOG_FIELD_PAYMENT_CONDITION_SUMMARY ?? ""]: values.paymentConditionSummary,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
   if (contractType === "sales_seller_credit") {
     return sanitizeCustomFieldEntries({
       ...baseEntries,
-      [process.env.BACKLOG_FIELD_PRODUCT_SCOPE ?? ""]: values.productScope,
-      [process.env.BACKLOG_FIELD_PAYMENT_CONDITION_SUMMARY ?? ""]: values.paymentConditionSummary,
-      [process.env.BACKLOG_FIELD_SECURITY_DEPOSIT_AMOUNT ?? ""]: values.securityDepositAmount,
-      [process.env.BACKLOG_FIELD_DEPOSIT_REPLENISH_DAYS ?? ""]: values.depositReplenishDays,
+      [process.env.BACKLOG_FIELD_CONTRACT_PERIOD ?? ""]: values.contractPeriod,
     });
   }
 
@@ -3357,16 +3374,6 @@ function buildBacklogCustomFields(contractType: string, values: Record<string, s
     return sanitizeCustomFieldEntries({
       ...baseEntries,
       [process.env.BACKLOG_FIELD_PROJECT_TITLE ?? ""]: values.projectTitle,
-      ...(contractType === "purchase_order"
-        ? {
-            [process.env.BACKLOG_FIELD_PAYMENT_CONDITION_SUMMARY ?? ""]: values.orderSummary,
-          }
-        : {}),
-      ...(contractType === "planning_order" || contractType === "publishing_order"
-        ? {
-            [process.env.BACKLOG_FIELD_MASTER_CONTRACT_REF ?? ""]: values.masterContractRef,
-          }
-        : {}),
     });
   }
 
@@ -3512,13 +3519,19 @@ function validateRequestSubmission(params: {
   ) {
     errors.project_title = "案件名を入力してください。";
   }
+  if (
+    params.contractType === "purchase_order"
+    || params.contractType === "planning_order"
+    || params.contractType === "publishing_order"
+  ) {
+    if (!params.contractDate) {
+      errors.contract_date = "発注日を入力してください。";
+    }
+  }
 
   if (params.contractType === "nda") {
     if (!params.contractDate) {
       errors.contract_date = "契約日を入力してください。";
-    }
-    if (!params.ndaPurpose.trim()) {
-      errors.nda_purpose = "秘密保持の目的を入力してください。";
     }
     if (!params.contractPeriod.trim()) {
       errors.contract_period = "契約期間を入力してください。";
@@ -3529,26 +3542,23 @@ function validateRequestSubmission(params: {
     if (!params.contractDate) {
       errors.contract_date = "契約日を入力してください。";
     }
+    if (!params.contractPeriod.trim()) {
+      errors.contract_period = "契約期間を入力してください。";
+    }
   }
 
   if (params.contractType === "license") {
-    if (!params.originalWork.trim()) {
-      errors.original_work = "原著作物を入力してください。";
+    if (!params.contractDate) {
+      errors.contract_date = "契約日を入力してください。";
     }
-    if (!params.jurisdiction.trim()) {
-      errors.jurisdiction = "管轄裁判所を入力してください。";
+    if (!params.contractPeriod.trim()) {
+      errors.contract_period = "契約期間を入力してください。";
     }
   }
 
   if (params.contractType === "license_schedule") {
     if (!params.licenseIssueKey.trim()) {
       errors.license_issue_key = "親ライセンス課題キーを入力してください。";
-    }
-    if (!params.licenseTypeName.trim()) {
-      errors.license_type_name = "ライセンス種別名を入力してください。";
-    }
-    if (!params.originalWork.trim()) {
-      errors.original_work = "原著作物を入力してください。";
     }
     if (!params.licenseStart) {
       errors.license_start = "許諾開始日を入力してください。";
@@ -3559,14 +3569,8 @@ function validateRequestSubmission(params: {
     if (!params.contractDate) {
       errors.contract_date = "契約日を入力してください。";
     }
-    if (!params.dealStructure.trim()) {
-      errors.deal_structure = "取引構造を入力してください。";
-    }
-    if (!params.originalWork.trim()) {
-      errors.original_work = "原著作物・IP名を入力してください。";
-    }
-    if (!params.jurisdiction.trim()) {
-      errors.jurisdiction = "管轄裁判所を入力してください。";
+    if (!params.contractPeriod.trim()) {
+      errors.contract_period = "契約期間を入力してください。";
     }
   }
 
@@ -3574,20 +3578,8 @@ function validateRequestSubmission(params: {
     if (!params.contractDate) {
       errors.contract_date = "変更合意日を入力してください。";
     }
-    if (!params.baseAgreementKey.trim()) {
-      errors.base_agreement_key = "元契約課題キーを入力してください。";
-    }
-    if (!params.effectiveDate.trim()) {
-      errors.effective_date = "効力発生日を入力してください。";
-    }
-    if (!params.changeMode.trim()) {
-      errors.change_mode = "変更モードを入力してください。";
-    }
-    if (!params.dealStructure.trim()) {
-      errors.deal_structure = "変更後の取引構造を入力してください。";
-    }
-    if (!params.originalWork.trim()) {
-      errors.original_work = "原著作物・IP名を入力してください。";
+    if (!params.contractPeriod.trim()) {
+      errors.contract_period = "契約期間を入力してください。";
     }
   }
 
@@ -3599,38 +3591,8 @@ function validateRequestSubmission(params: {
     if (!params.contractDate) {
       errors.contract_date = "契約日を入力してください。";
     }
-  }
-
-  if (params.contractType === "sales_buyer") {
-    if (!params.productScope.trim()) {
-      errors.product_scope = "商品範囲を入力してください。";
-    }
-    if (!params.paymentConditionSummary.trim()) {
-      errors.payment_condition_summary = "支払条件概要を入力してください。";
-    }
-  }
-
-  if (params.contractType === "sales_seller_standard") {
-    if (!params.productScope.trim()) {
-      errors.product_scope = "商品範囲を入力してください。";
-    }
-    if (!params.paymentConditionSummary.trim()) {
-      errors.payment_condition_summary = "支払条件概要を入力してください。";
-    }
-  }
-
-  if (params.contractType === "sales_seller_credit") {
-    if (!params.productScope.trim()) {
-      errors.product_scope = "商品範囲を入力してください。";
-    }
-    if (!params.paymentConditionSummary.trim()) {
-      errors.payment_condition_summary = "支払条件概要を入力してください。";
-    }
-    if (!params.securityDepositAmount.trim()) {
-      errors.security_deposit_amount = "保証金額を入力してください。";
-    }
-    if (!params.depositReplenishDays.trim()) {
-      errors.deposit_replenish_days = "保証金補充期限を入力してください。";
+    if (!params.contractPeriod.trim()) {
+      errors.contract_period = "契約期間を入力してください。";
     }
   }
 

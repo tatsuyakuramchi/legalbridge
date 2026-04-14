@@ -21,7 +21,7 @@
 - `operations/DB_SETUP.md`
   - ローカル DB のセットアップ手順
 - `operations/BACKLOG_SETUP_CHECKLIST.md`
-  - Backlog 側の初期設定チェックリスト
+  - Backlog 側の初期設定チェックリスト。2026-04-14 時点の最小属性セットと任意運用ルールを反映
 - `operations/OPERATION_READINESS_CHECKLIST.md`
   - ローカル UI / Backlog / Slack の運用前確認チェックリスト
 - `operations/SLACK_SIGNATURE_VERIFICATION_REPORT.md`
@@ -32,6 +32,10 @@
   - Cloud Run のセキュリティ構成変更に関する提出用証憑
 - `operations/ARCHITECTURE_V2_OPERATIONS.md`
   - 新アーキテクチャの運用境界、障害切り分け、移行手順
+- `operations/CURRENT_GCP_SYSTEM_CONFIGURATION.md`
+  - システム管理部署向けの現行 GCP 構成書。現在稼働中のサービス、DB、Secret、外部連携、Backlog 最小属性セットをまとめた資料
+- `operations/BACKLOG_FIELD_REDUCTION_CANDIDATES.md`
+  - Backlog をステータス管理と最小補足に絞るための、カスタム属性の `残す / DBへ移す / 削除候補` 一覧と、2026-04-14 時点の実施結果
 - `operations/GCP_SERVICE_SPLIT_RUNBOOK.md`
   - `command-service / work-service` の役割分担と段階移行の運用手順
 - `operations/GCP_DEPLOY_SEQUENCE.md`
@@ -68,7 +72,7 @@
 - `development/SLACK_MODAL_MINIMUM_FIELDS_FINAL.md`
   - Slack モーダルの確定版最小項目一覧。種別ごとに Slack に残す項目と Backlog 補完項目を整理
 - `development/BACKLOG_FIELD_MAPPING_GUIDE.md`
-  - Backlog カスタム属性と `.env` の対応整理
+  - 現行の Backlog 最小属性セットと `BACKLOG_FIELD_*` の対応整理
 - `development/BACKLOG_CUSTOM_FIELD_API_SPEC.md`
   - 出版発注書 / 納品リクエスト / 利用許諾料計算の Backlog カスタム属性追加仕様
 - `development/PLANNING_ORDER_TEMPLATE_VARIABLES.md`

@@ -275,7 +275,7 @@ void (async () => {
       detail: backlogValidation.blockingIssues.length > 0
         ? `Backlog 設定に blocking issue があります (${backlogValidation.blockingIssues.length}件)。`
         : backlogValidation.warnings.length > 0
-          ? `Backlog の必須設定は満たしています。拡張設定に warning があります (${backlogValidation.warnings.length}件)。`
+          ? `Backlog の最小必須設定は満たしています。任意設定または DB 移管予定項目に warning があります (${backlogValidation.warnings.length}件)。`
           : "Backlog 設定差分はありません。",
       success: backlogValidation.blockingIssues.length === 0 && backlogValidation.warnings.length === 0,
       meta: {

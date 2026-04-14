@@ -18,13 +18,13 @@ export interface DocumentRequestFieldGroup {
 const COMMON_GROUPS: DocumentRequestFieldGroup[] = [
   {
     title: "共通項目",
-    description: "Slack受付で最初に聞く共通ヘッダです。住所や代表者は Backlog / Local 側で補完します。",
+    description: "Slack受付で最初に聞く共通ヘッダです。住所や代表者などの詳細は DB / 管理UI 側で補完します。",
     fields: [
       {
         id: "registration_number",
         label: "登録番号",
         placeholder: "個人は執筆者登録番号 / 法人は国税の登録番号",
-        helper: "必要な種別だけ Slack で入力し、不要な種別は Backlog / Local 側で補完します。",
+        helper: "必要な種別だけ Slack で入力し、不要な情報は DB / 管理UI 側で補完します。",
       },
       {
         id: "counterparty",
@@ -81,9 +81,7 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
       title: "NDA固有項目",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "nda_purpose", label: "秘密保持の目的", required: true, multiline: true, placeholder: "共同検討のため" },
         { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
-        { id: "confidentiality_period", label: "秘密保持期間", placeholder: "契約終了後3年" },
       ],
     },
   ],
@@ -93,7 +91,7 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
       title: "業務委託基本契約固有項目",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "notes", label: "業務概要・前提情報", multiline: true, placeholder: "委託業務の概要" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
       ],
     },
   ],
@@ -102,14 +100,8 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     {
       title: "ライセンス基本情報",
       fields: [
-        { id: "contract_date", label: "契約日", placeholder: "2026-04-01" },
-        { id: "original_work", label: "原著作物", required: true, placeholder: "作品名" },
-      ],
-    },
-    {
-      title: "契約補足",
-      fields: [
-        { id: "jurisdiction", label: "管轄裁判所", required: true, placeholder: "東京地方裁判所" },
+        { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
       ],
     },
   ],
@@ -117,111 +109,32 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "基本条件",
-      description: "個別利用許諾条件のヘッダ情報です。ライセンス基本契約がある場合は、その条件と矛盾しない範囲で入力します。詳細な金銭条件や素材情報は起票後に Backlog / Local 側で補完します。",
+      description: "個別利用許諾条件では、親ライセンス課題キーと開始日だけを Slack で受けます。Backlog は任意の補足欄とし、その他の条件は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "license_issue_key", label: "親ライセンス課題キー", required: true, placeholder: "LEGAL-10" },
-        { id: "license_type_name", label: "許諾区分", required: true, placeholder: "商品化許諾" },
-        { id: "original_work", label: "対象作品・原著作物", required: true, placeholder: "作品名" },
         { id: "license_start", label: "許諾開始日", required: true, placeholder: "2026-04-01", helper: "契約期間はマスタ契約前提のため、個別条件では開始日を管理します。" },
-        { id: "territory", label: "許諾地域・言語", placeholder: "日本国内 / 日本語" },
       ],
     },
   ],
   ip_overseas_master: [
     ...COMMON_GROUPS,
     {
-      title: "契約ストラクチャー",
-      description: "海外向けのIP取引について、ライセンスアウトかプロダクトアウトかをここで切り替えます。",
+      title: "海外IP契約（基本契約）",
+      description: "Backlog には任意の補足として契約日と契約期間だけ残し、詳細条件は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "deal_structure", label: "取引構造", required: true, placeholder: "license_out / product_out" },
-        { id: "original_work", label: "原著作物・IP名", required: true, placeholder: "作品名 / IP名" },
-        { id: "jurisdiction", label: "管轄裁判所", required: true, placeholder: "Tokyo District Court" },
-        { id: "contract_period", label: "契約期間", placeholder: "5 years" },
-      ],
-    },
-    {
-      title: "事業条件",
-      fields: [
-        { id: "license_scope", label: "許諾対象 / 権利範囲", multiline: true, placeholder: "Licensed rights, media, channels" },
-        { id: "ip_product_scope", label: "製品化対象 / 商品範囲", multiline: true, placeholder: "Board games, accessories, digital adaptations" },
-        { id: "territory", label: "地域・言語", placeholder: "Worldwide / English" },
-        { id: "exclusivity", label: "独占性", placeholder: "Exclusive / Non-exclusive / Sole" },
-        { id: "revenue_model", label: "収益モデル", placeholder: "Royalty / Revenue share / Purchase and resale" },
-        { id: "royalty_terms", label: "ロイヤリティ・対価条件", multiline: true, placeholder: "Rate, MG, report cycle, payment timing" },
-      ],
-    },
-    {
-      title: "運用条件",
-      fields: [
-        { id: "sublicense_allowed", label: "再許諾可否", placeholder: "Allowed with prior consent" },
-        { id: "title_transfer_model", label: "権利帰属 / 成果物帰属", multiline: true, placeholder: "Ownership and derivative works treatment" },
-        { id: "inventory_selloff", label: "終了後在庫処理", multiline: true, placeholder: "Sell-off period and disposal rules" },
-        { id: "special_notes", label: "特記事項", multiline: true, placeholder: "Existing deal assumptions, transitional language" },
-      ],
-    },
-    {
-      title: "Schedule 1",
-      description: "ライセンスアウト条件は、本文に入れたい内容を長文でまとめて入力します。",
-      fields: [
-        { id: "schedule_1_summary", label: "Schedule 1 Summary", multiline: true, placeholder: "Royalty rate, MG / advance, accounting period, payment / report due dates, first print run, target release date, complimentary copies, credit wording" },
-        { id: "schedule_1_special_provisions", label: "Schedule 1 Special Provisions", multiline: true, placeholder: "Consumer law carve-out, VAT / GST, copyright registration, moral rights, mandatory distribution law, additional terms" },
-      ],
-    },
-    {
-      title: "Schedule 2",
-      description: "プロダクトアウト条件も、供給条件・特則を長文でまとめて入力します。",
-      fields: [
-        { id: "schedule_2_summary", label: "Schedule 2 Summary", multiline: true, placeholder: "Price list, MPR, Incoterms, arrival point, advance / balance terms, currency" },
-        { id: "schedule_2_special_provisions", label: "Schedule 2 Special Provisions", multiline: true, placeholder: "Import / customs, consumer product safety, distribution law protections, VAT / GST on supply, insurance, marketplaces, additional terms" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "5 years" },
       ],
     },
   ],
   ip_overseas_amendment: [
     ...COMMON_GROUPS,
     {
-      title: "変更合意ヘッダ",
-      description: "元契約を特定し、どの方向に構造変更するかを指定します。",
+      title: "海外IP契約（変更合意）",
+      description: "Backlog には任意の補足として契約日と契約期間だけ残し、変更詳細は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "contract_date", label: "変更合意日", required: true, placeholder: "2026-04-01" },
-        { id: "base_agreement_key", label: "元契約課題キー", required: true, placeholder: "LEGAL-123" },
-        { id: "effective_date", label: "変更効力発生日", required: true, placeholder: "2026-05-01" },
-        { id: "change_mode", label: "変更モード", required: true, placeholder: "license_to_product / product_to_license / amendment" },
-        { id: "deal_structure", label: "変更後の取引構造", required: true, placeholder: "license_out / product_out" },
-      ],
-    },
-    {
-      title: "変更対象",
-      fields: [
-        { id: "original_work", label: "原著作物・IP名", required: true, placeholder: "作品名 / IP名" },
-        { id: "amendment_clauses", label: "変更対象条項", multiline: true, placeholder: "Clause 2, 4, 7 and schedule replacement" },
-        { id: "license_scope", label: "変更後の許諾対象 / 権利範囲", multiline: true, placeholder: "Updated licensed rights" },
-        { id: "ip_product_scope", label: "変更後の製品化対象 / 商品範囲", multiline: true, placeholder: "Updated product scope" },
-        { id: "territory", label: "変更後の地域・言語", placeholder: "Worldwide / English" },
-        { id: "revenue_model", label: "変更後の収益モデル", placeholder: "Royalty / Revenue share / Purchase and resale" },
-        { id: "royalty_terms", label: "変更後の対価条件", multiline: true, placeholder: "Updated rates, MG, settlement terms" },
-      ],
-    },
-    {
-      title: "存続・補足",
-      fields: [
-        { id: "inventory_selloff", label: "在庫処理・移行措置", multiline: true, placeholder: "Sell-off and transition arrangement" },
-        { id: "title_transfer_model", label: "権利帰属の扱い", multiline: true, placeholder: "Ownership after amendment" },
-        { id: "special_notes", label: "特記事項", multiline: true, placeholder: "Existing clauses that remain unchanged" },
-      ],
-    },
-    {
-      title: "Schedule 1 変更後条件",
-      fields: [
-        { id: "schedule_1_summary", label: "Schedule 1 Summary", multiline: true, placeholder: "Updated royalty rate, MG / advance, accounting period, payment / report due dates, first print run, release date, complimentary copies, credit wording" },
-        { id: "schedule_1_special_provisions", label: "Schedule 1 Special Provisions", multiline: true, placeholder: "Updated consumer law carve-out, VAT / GST, moral rights, distribution law, additional terms" },
-      ],
-    },
-    {
-      title: "Schedule 2 変更後条件",
-      fields: [
-        { id: "schedule_2_summary", label: "Schedule 2 Summary", multiline: true, placeholder: "Updated price list, MPR, Incoterms, arrival point, payment terms, currency" },
-        { id: "schedule_2_special_provisions", label: "Schedule 2 Special Provisions", multiline: true, placeholder: "Updated import / customs, safety, distribution protections, VAT / GST, insurance, marketplaces, additional terms" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "5 years" },
       ],
     },
   ],
@@ -229,12 +142,10 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "売買契約（当社買手）",
-      description: "当社が仕入側となるケースです。契約本文に入れたい条件の要点を先にまとめます。",
+      description: "Backlog には任意の補足として契約日と契約期間だけ残し、売買条件の詳細は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "product_scope", label: "商品範囲", required: true, multiline: true, placeholder: "ボードゲーム関連商品一式" },
-        { id: "payment_condition_summary", label: "支払条件概要", required: true, multiline: true, placeholder: "検収月末締め翌月末払い" },
-        { id: "notes", label: "補足メモ", multiline: true, placeholder: "例外条件や運用メモがあれば入力" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
       ],
     },
   ],
@@ -242,12 +153,10 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "売買契約（当社売手・標準）",
-      description: "当社が売手となる標準的な掛け売り条件です。",
+      description: "Backlog には任意の補足として契約日と契約期間だけ残し、売買条件の詳細は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "product_scope", label: "商品範囲", required: true, multiline: true, placeholder: "トレーディングカード関連商品" },
-        { id: "payment_condition_summary", label: "支払条件概要", required: true, multiline: true, placeholder: "月末締め翌月末払い" },
-        { id: "notes", label: "補足メモ", multiline: true, placeholder: "例外条件や運用メモがあれば入力" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
       ],
     },
   ],
@@ -255,14 +164,10 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "売買契約（当社売手・保証金掛け売り）",
-      description: "保証金の取り決めがある売買契約です。保証金関連の条件がわかるように要約します。",
+      description: "Backlog には任意の補足として契約日と契約期間だけ残し、売買条件の詳細は DB / 管理 UI 側で保持します。",
       fields: [
         { id: "contract_date", label: "契約日", required: true, placeholder: "2026-04-01" },
-        { id: "product_scope", label: "商品範囲", required: true, multiline: true, placeholder: "ボードゲーム関連商品" },
-        { id: "payment_condition_summary", label: "支払条件概要", required: true, multiline: true, placeholder: "月末締め翌月20日払い" },
-        { id: "security_deposit_amount", label: "保証金額", required: true, placeholder: "300000" },
-        { id: "deposit_replenish_days", label: "保証金補充期限", required: true, placeholder: "不足通知から5営業日以内" },
-        { id: "notes", label: "補足メモ", multiline: true, placeholder: "例外条件や運用メモがあれば入力" },
+        { id: "contract_period", label: "契約期間", required: true, placeholder: "1年" },
       ],
     },
   ],
@@ -308,16 +213,10 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "発注書ヘッダ",
-      description: "明細は管理UIまたはCSV取込で管理します。",
+      description: "Backlog には任意の補足として発注日と案件名だけ残し、明細や支払条件の詳細は DB / 管理 UI 側で管理します。",
       fields: [
+        { id: "contract_date", label: "発注日", required: true, placeholder: "2026-04-01" },
         { id: "project_title", label: "案件名", required: true, placeholder: "イラスト制作案件" },
-        {
-          id: "order_summary",
-          label: "発注概要",
-          multiline: true,
-          placeholder: "納期、支払日、仕様詳細等を入力してください。",
-          helper: "納期、支払日、仕様詳細等を入力してください。決め打ちできない内容も含めて自由に記載できます。",
-        },
       ],
     },
   ],
@@ -325,8 +224,9 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "企画発注書ヘッダ",
-      description: "案件名のみ Slack で受け、参照情報や明細は XLSX/CSV 取込や Backlog 側で補完します。",
+      description: "Backlog には任意の補足として発注日と案件名だけ残し、参照情報や明細は DB / CSV 取込側で補完します。",
       fields: [
+        { id: "contract_date", label: "発注日", required: true, placeholder: "2026-04-01" },
         { id: "project_title", label: "案件名", required: true, placeholder: "11月分企画発注" },
       ],
     },
@@ -335,17 +235,10 @@ const FIELD_GROUPS: Record<DocumentRequestType, DocumentRequestFieldGroup[]> = {
     ...COMMON_GROUPS,
     {
       title: "出版発注書ヘッダ",
-      description: "書誌進行や制作進行を前提にした出版向け発注です。明細は CSV 取込で管理します。",
+      description: "Backlog には任意の補足として発注日と案件名だけ残し、進行詳細や明細は DB / CSV 取込側で管理します。",
       fields: [
+        { id: "contract_date", label: "発注日", required: true, placeholder: "2026-04-01" },
         { id: "project_title", label: "案件名", required: true, placeholder: "2026年秋刊 書籍制作発注" },
-        { id: "master_contract_ref", label: "マスター契約参照", placeholder: "PUB-MC-001" },
-        {
-          id: "order_summary",
-          label: "進行概要",
-          multiline: true,
-          placeholder: "初校締切、再校締切、校了予定、支払予定などを要約",
-          helper: "詳細な納期や検収日は CSV / Backlog 子課題で管理し、ここでは全体概要を入力します。",
-        },
       ],
     },
   ],
