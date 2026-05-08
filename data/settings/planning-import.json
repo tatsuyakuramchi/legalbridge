@@ -57,8 +57,8 @@
       "label": "出版一括発注書",
       "settings": {
         "version": 1,
-        "projectTitleSource": "manual",
-        "projectTitleManualValue": "出版一括発注書",
+        "projectTitleSource": "filename",
+        "projectTitleManualValue": "",
         "requesterSlackUserIdColumn": "担当者ID",
         "orderDateColumn": "発注日",
         "vendorLookupColumn": "支払先（ペンネーム）",

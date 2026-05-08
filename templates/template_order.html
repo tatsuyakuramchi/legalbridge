@@ -6,31 +6,24 @@
   <style>
     @page { size: A4; margin: 12mm 15mm; }
 
-    :root {
-      --ink: #111;
-      --muted: #555;
-      --line: #cfcfcf;
-      --panel: #f3f3f3;
-      --panel2: #fafafa;
-    }
-
     * { box-sizing: border-box; }
     body {
-      font-family: "Noto Sans JP", "Yu Gothic", sans-serif;
+      font-family: "Noto Sans CJK JP", "Noto Sans JP", "IPAexGothic", "IPAGothic", sans-serif;
       font-size: 10pt;
       line-height: 1.5;
-      color: var(--ink);
+      color: #111;
       margin: 0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
 
     .header-row {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      border-bottom: 2px solid var(--ink);
+      border-bottom: 2px solid #111;
       padding-bottom: 6px;
       margin-bottom: 14px;
-      gap: 12px;
     }
 
     .title-box h1 {
@@ -43,27 +36,29 @@
       text-align: right;
       font-size: 9pt;
       line-height: 1.6;
-      color: var(--muted);
+      color: #555;
       white-space: nowrap;
     }
 
     .party-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 300px;
-      gap: 16px;
-      align-items: start;
+      display: table;
+      width: 100%;
+      table-layout: fixed;
       margin-bottom: 10px;
     }
 
     .vendor-section {
+      display: table-cell;
+      vertical-align: top;
       font-size: 10pt;
       min-width: 0;
+      padding-right: 12px;
     }
 
     .vendor-name {
       font-size: 13pt;
       font-weight: 800;
-      border-bottom: 1px solid var(--ink);
+      border-bottom: 1px solid #111;
       display: inline-block;
       min-width: 0;
       width: 100%;
@@ -72,25 +67,26 @@
     }
 
     .company-section {
+      display: table-cell;
+      vertical-align: top;
       font-size: 9pt;
-      background: var(--panel2);
+      background: #fafafa;
       padding: 10px;
-      border: 1px solid var(--line);
+      border: 1px solid #cfcfcf;
       overflow-wrap: anywhere;
       width: 300px;
-      justify-self: end;
       margin-top: 2px;
     }
 
     .section-mark {
-      color: var(--ink);
+      color: #111;
       padding: 2px 0 2px 10px;
       font-weight: 800;
       font-size: 10pt;
       margin-top: 12px;
       margin-bottom: 6px;
       display: inline-block;
-      border-left: 4px solid var(--ink);
+      border-left: 4px solid #111;
     }
 
     table.summary,
@@ -111,7 +107,7 @@
     table.items td,
     table.sign-table th,
     table.sign-table td {
-      border: 1px solid var(--line);
+      border: 1px solid #cfcfcf;
       padding: 7px 8px;
       vertical-align: top;
     }
@@ -119,7 +115,7 @@
     table.summary th,
     table.sign-table th,
     table.items th {
-      background: var(--panel);
+      background: #f3f3f3;
       text-align: left;
     }
 
@@ -149,9 +145,9 @@
 
     .item-spec-block {
       font-size: 8.5pt;
-      color: var(--muted);
+      color: #555;
       white-space: pre-wrap;
-      border-top: 1px dashed var(--line);
+      border-top: 1px dashed #cfcfcf;
       padding-top: 4px;
       margin-top: 4px;
     }
@@ -162,9 +158,9 @@
       padding: 2px 6px;
       border-radius: 2px;
       font-weight: 800;
-      border: 1px solid var(--ink);
+      border: 1px solid #111;
       background: #fff;
-      color: var(--ink);
+      color: #111;
       white-space: nowrap;
     }
 
@@ -172,10 +168,10 @@
       display: inline-block;
       font-size: 7.5pt;
       padding: 1px 5px;
-      border: 1px solid var(--line);
+      border: 1px solid #cfcfcf;
       background: #fff;
       border-radius: 2px;
-      color: var(--ink);
+      color: #111;
       white-space: nowrap;
       margin-right: 4px;
       margin-bottom: 4px;
@@ -184,7 +180,7 @@
     .amount-note,
     .small-muted {
       font-size: 8.5pt;
-      color: var(--muted);
+      color: #555;
     }
 
     .total-amount {
@@ -197,7 +193,7 @@
     .callout {
       margin-top: 12px;
       font-size: 9pt;
-      border: 1px solid var(--line);
+      border: 1px solid #cfcfcf;
       background: #fff;
     }
 
@@ -208,18 +204,18 @@
     .terms-title {
       font-weight: 900;
       margin-bottom: 6px;
-      border-bottom: 1px solid var(--ink);
+      border-bottom: 1px solid #111;
       padding-bottom: 3px;
     }
 
     .callout {
-      border-left: 4px solid var(--ink);
+      border-left: 4px solid #111;
       padding: 8px 10px;
     }
 
     .sign-box {
       height: 22mm;
-      border: 1px dashed var(--line);
+      border: 1px dashed #cfcfcf;
       margin-top: 4px;
     }
   </style>
@@ -242,10 +238,10 @@
       <div style="margin-top:6px; font-size:9pt;">{{VENDOR_REPRESENTATIVE_SAMA}}</div>
       {{/if}}
       {{#if VENDOR_ADDRESS}}
-      <div style="margin-top:8px; font-size:9pt; color:var(--muted);">{{VENDOR_ADDRESS}}</div>
+      <div style="margin-top:8px; font-size:9pt; color:#555;">{{VENDOR_ADDRESS}}</div>
       {{/if}}
       {{#if VENDOR_EMAIL}}
-      <div style="margin-top:4px; font-size:9pt; color:var(--muted);">E-mail: {{VENDOR_EMAIL}}</div>
+      <div style="margin-top:4px; font-size:9pt; color:#555;">E-mail: {{VENDOR_EMAIL}}</div>
       {{/if}}
       {{#if VENDOR_CONTACT_NAME}}
       <div style="margin-top:6px; font-size:9pt;">
@@ -257,12 +253,12 @@
     </div>
 
     <div class="company-section">
-      <div style="font-size:8pt; font-weight:800; color:var(--muted); margin-bottom:4px;">発注者</div>
+      <div style="font-size:8pt; font-weight:800; color:#555; margin-bottom:4px;">発注者</div>
       <div style="font-weight:900; font-size:12pt; margin-bottom:5px;">{{PARTY_A_NAME}}</div>
       <div style="white-space: pre-wrap;">{{PARTY_A_ADDRESS}}</div>
       <div style="margin-top:2px;">{{PARTY_A_REP}}</div>
       {{#if STAFF_NAME}}
-      <div style="margin-top:8px; padding-top:6px; border-top:1px dashed var(--line); font-size:9pt;">
+      <div style="margin-top:8px; padding-top:6px; border-top:1px dashed #cfcfcf; font-size:9pt;">
         {{#if STAFF_DEPARTMENT}}<strong>部署:</strong> {{STAFF_DEPARTMENT}}<br>{{/if}}
         <strong>担当:</strong> {{STAFF_NAME}}<br>
         {{#if STAFF_PHONE}}TEL: {{STAFF_PHONE}}<br>{{/if}}
@@ -286,7 +282,7 @@
       <td>{{summaryDeliveryDate}}</td>
     </tr>
     <tr>
-      <th>支払条件</th>
+      <th>支払日</th>
       <td>{{summaryPaymentTerms}}</td>
     </tr>
   </table>
@@ -298,6 +294,7 @@
         <th style="width:6mm;">No</th>
         <th>業務内容・成果物</th>
         <th style="width:18mm;">支払方法</th>
+        <th style="width:24mm;">支払日</th>
         <th style="width:15mm;">数量</th>
         <th style="width:22mm;">単価</th>
         <th style="width:24mm;">金額（税抜）</th>
@@ -314,6 +311,7 @@
           {{#if detailText}}<div class="item-spec-block">{{detailText}}</div>{{/if}}
         </td>
         <td class="center"><span class="pay-method-badge">{{payment_method_display}}</span></td>
+        <td class="center">{{payment_date}}</td>
         <td class="right">{{qty}}</td>
         <td class="right">¥ {{formatCurrency unitPrice}}</td>
         <td class="right">¥ {{formatCurrency amount}}</td>
@@ -324,13 +322,14 @@
         <td class="center">1</td>
         <td><div class="item-name-block">{{ITEM_NAME}}</div></td>
         <td class="center"><span class="pay-method-badge">{{PAYMENT_METHOD}}</span></td>
+        <td class="center">{{summaryPaymentTerms}}</td>
         <td class="right">1</td>
         <td class="right">-</td>
         <td class="right">¥ {{formatCurrency grandTotalExTax}}</td>
       </tr>
       {{/if}}
       <tr>
-        <td colspan="5" class="right"><strong>小計（税抜）</strong></td>
+        <td colspan="6" class="right"><strong>小計（税抜）</strong></td>
         <td class="right"><strong>¥ {{formatCurrency grandTotalExTax}}</strong></td>
       </tr>
     </tbody>

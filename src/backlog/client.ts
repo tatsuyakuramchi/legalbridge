@@ -77,6 +77,36 @@ export interface CreateIssueParams {
   attachmentIds?: number[];
 }
 
+function formatBacklogError(error: unknown, context: string): Error {
+  if (!axios.isAxiosError(error)) {
+    return new Error(`${context}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const status = error.response?.status;
+  const responseErrors = Array.isArray(error.response?.data?.errors)
+    ? error.response?.data?.errors
+    : [];
+  const responseBody = error.response?.data;
+
+  const detailedMessages = responseErrors
+    .map((item: any) => {
+      const field = item?.info?.key ? ` [${item.info.key}]` : "";
+      const message = String(item?.message ?? "").trim();
+      if (!message) return null;
+      return `${message}${field}`;
+    })
+    .filter((value: string | null): value is string => Boolean(value));
+
+  const base = `${context}${status ? ` (status ${status})` : ""}`;
+  if (detailedMessages.length > 0) {
+    return new Error(`${base}: ${detailedMessages.join(" / ")}`);
+  }
+  if (responseBody) {
+    return new Error(`${base}: ${JSON.stringify(responseBody)}`);
+  }
+  return new Error(`${base}: ${error.message}`);
+}
+
 export class BacklogClient {
   private http: AxiosInstance;
   private projectKey: string;
@@ -131,7 +161,7 @@ export class BacklogClient {
         console.error("[Backlog] 課題作成失敗 payload=", payload);
         console.error("[Backlog] 課題作成失敗 errors=", responseErrors);
       }
-      throw error;
+      throw formatBacklogError(error, "Backlog課題作成に失敗しました");
     }
   }
 
@@ -188,8 +218,12 @@ export class BacklogClient {
   }
 
   async addComment(issueKey: string, content: string): Promise<void> {
-    await this.http.post(`/issues/${issueKey}/comments`, { content });
-    console.log(`[Backlog] コメント投稿: ${issueKey}`);
+    try {
+      await this.http.post(`/issues/${issueKey}/comments`, { content });
+      console.log(`[Backlog] コメント投稿: ${issueKey}`);
+    } catch (error) {
+      throw formatBacklogError(error, `Backlogコメント投稿に失敗しました (${issueKey})`);
+    }
   }
 
   async addCommentWithAttachments(issueKey: string, content: string, attachmentIds: number[] = []): Promise<void> {
@@ -198,10 +232,14 @@ export class BacklogClient {
     for (const attachmentId of attachmentIds) {
       form.append("attachmentId[]", String(attachmentId));
     }
-    await this.http.post(`/issues/${issueKey}/comments`, form, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    console.log(`[Backlog] コメント投稿(添付付き): ${issueKey}`);
+    try {
+      await this.http.post(`/issues/${issueKey}/comments`, form, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      console.log(`[Backlog] コメント投稿(添付付き): ${issueKey}`);
+    } catch (error) {
+      throw formatBacklogError(error, `Backlogコメント投稿(添付付き)に失敗しました (${issueKey})`);
+    }
   }
 
   async uploadAttachment(filePath: string, filename: string): Promise<number> {
@@ -238,13 +276,21 @@ export class BacklogClient {
   }
 
   async updateStatus(issueKey: string, statusId: number): Promise<void> {
-    await this.http.patch(`/issues/${issueKey}`, { statusId });
+    try {
+      await this.http.patch(`/issues/${issueKey}`, { statusId });
+    } catch (error) {
+      throw formatBacklogError(error, `Backlogステータス更新に失敗しました (${issueKey})`);
+    }
   }
 
   /** カスタムフィールド単体更新（MG消化額の累積更新等に使用） */
   async updateCustomField(issueKey: string, fieldId: number, value: string): Promise<void> {
-    await this.http.patch(`/issues/${issueKey}`, { [`customField_${fieldId}`]: value });
-    console.log(`[Backlog] フィールド更新: ${issueKey} / field${fieldId}=${value}`);
+    try {
+      await this.http.patch(`/issues/${issueKey}`, { [`customField_${fieldId}`]: value });
+      console.log(`[Backlog] フィールド更新: ${issueKey} / field${fieldId}=${value}`);
+    } catch (error) {
+      throw formatBacklogError(error, `Backlogカスタム項目更新に失敗しました (${issueKey}, field:${fieldId})`);
+    }
   }
 
   async updateIssue(issueKey: string, params: UpdateIssueParams): Promise<void> {
@@ -265,8 +311,12 @@ export class BacklogClient {
       }
     }
     if (Object.keys(payload).length === 0) return;
-    await this.http.patch(`/issues/${issueKey}`, payload);
-    console.log(`[Backlog] 課題更新: ${issueKey}`);
+    try {
+      await this.http.patch(`/issues/${issueKey}`, payload);
+      console.log(`[Backlog] 課題更新: ${issueKey}`);
+    } catch (error) {
+      throw formatBacklogError(error, `Backlog課題更新に失敗しました (${issueKey})`);
+    }
   }
 
   async listIssueTypes(): Promise<BacklogIssueType[]> {

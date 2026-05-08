@@ -42,6 +42,19 @@
     .party-label { font-size: 8pt; color: #555; margin-bottom: 2px; }
     .party-name { font-size: 13pt; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; }
 
+    /* ② 相手方登録番号表示 */
+    .party-reg-no {
+      font-size: 8.5pt;
+      margin-top: 5px;
+      color: #333;
+      letter-spacing: 0.01em;
+    }
+    .party-reg-no strong {
+      font-family: "Courier New", "Lucida Console", monospace;
+      font-size: 9pt;
+      letter-spacing: 0.04em;
+    }
+
     .section-title {
       font-size: 9pt;
       font-weight: bold;
@@ -60,6 +73,24 @@
 
     tr.total-row td { background: #f0f0f0; font-weight: bold; font-size: 11pt; }
     tr.subtotal-row td { background: #f8f8f8; }
+
+    /* ④ 軽減税率対象識別マーク（消費税法57条の4第1項第3号ロ） */
+    .reduced-mark {
+      display: inline-block;
+      border: 1px solid #666;
+      font-size: 7pt;
+      line-height: 1;
+      padding: 1px 3px;
+      margin-right: 4px;
+      vertical-align: middle;
+      color: #444;
+    }
+    .reduced-note {
+      font-size: 8pt;
+      color: #555;
+      margin-top: 5px;
+      padding-left: 2px;
+    }
 
     /* 変更履歴ブロック */
     .change-log-section {
@@ -114,10 +145,33 @@
     .condition-box h3 { font-size: 8.5pt; font-weight: bold; border-bottom: 1px solid #ddd; margin-bottom: 5px; padding-bottom: 3px; }
     .condition-box .highlight { font-size: 11pt; font-weight: bold; }
 
-    .stamp-area { display: flex; justify-content: flex-end; gap: 6px; margin: 14px 0 10px; }
-    .stamp-box { width: 50px; height: 50px; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 7.5pt; color: #999; }
+    /* みなし同意ブロック */
+    .confirm-box {
+      border: 1px solid #ccc;
+      background: #fafafa;
+      padding: 10px 12px;
+      margin-top: 14px;
+      font-size: 9pt;
+      line-height: 1.6;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .confirm-box p { margin: 0 0 6px 0; }
+    .confirm-box p:last-child { margin-bottom: 0; }
+    .confirm-box .proviso {
+      font-size: 8.3pt;
+      color: #555;
+      border-top: 1px dashed #ccc;
+      padding-top: 6px;
+      margin-top: 8px;
+    }
+    .confirm-box .contact {
+      font-size: 8.7pt;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #ddd;
+    }
 
-    .doc-footer { border-top: 1px solid #ccc; padding-top: 6px; font-size: 7.5pt; color: #666; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -136,30 +190,35 @@
       <div class="doc-number">{{issueKey}}-{{itemNo}}-{{deliveryNo}}</div>
       <div>発注課題: {{issueKey}} ／ 明細: ①{{itemNo}}</div>
       <div>発行日: {{documentDate}}</div>
-      <div>検収期限: <strong>{{inspectionDeadline}}</strong></div>
     </div>
   </div>
 
-  <!-- 当事者 -->
+  <!-- 当事者
+       ①作成者: 株式会社アークライト（右ブロック）
+       ②相手方の氏名・名称・登録番号: counterparty + counterpartyRegistrationNo（左ブロック） -->
   <div class="parties">
     <div class="party-block">
-      <div class="party-label">受託者（相手方）</div>
-    <div class="party-name">{{counterparty}} 御中</div>
-    {{#if counterpartyRepresentativeSama}}
-    <div style="font-size:10pt; margin-top:4px;">{{counterpartyRepresentativeSama}}</div>
-    {{/if}}
+      <div class="party-label">受託者（課税仕入れの相手方）</div>
+      <div class="party-name">{{counterparty}} 御中</div>
+      {{#if counterpartyRepresentativeSama}}
+      <div style="font-size:10pt; margin-top:4px;">{{counterpartyRepresentativeSama}}</div>
+      {{/if}}
+      {{#if counterpartyTni}}
+      <div class="party-reg-no">登録番号: <strong>{{counterpartyTni}}</strong></div>
+      {{/if}}
     </div>
     <div class="party-block" style="text-align:right; font-size:8.5pt; line-height:1.9;">
       <div style="font-size:11pt; font-weight:bold;">株式会社アークライト</div>
       <div>〒101-0052 東京都千代田区神田小川町1-2</div>
-      <div>風雲堂ビル2階　法務部</div>
+      <div>風雲堂ビル2階　{{inspectorDept}}</div>
+      <div>担当: {{inspectorName}}</div>
     </div>
   </div>
 
   <!-- 検収確認文 -->
   <div class="confirmation-text">
     　納品日 <strong>{{deliveredAt}}</strong> に納品された下記成果物について検収を行い、
-    検収期間（{{inspectionDays}}日間）内に確認の上、検収完了をご通知します。
+    検収日 <strong>{{inspectionCompletedAt}}</strong> に検収完了致しましたのでご通知します。
     {{#if isPartial}}本書は分割納品（第{{deliveryNo}}回）に係る検収書です。{{/if}}
   </div>
 
@@ -177,28 +236,34 @@
   </div>
   {{/if}}
 
-  <!-- 今回納品明細 -->
+  <!-- 今回納品明細
+       ③課税仕入れの年月日: deliveredAt
+       ④課税仕入れの内容（軽減税率対象の旨）: description + isReducedTaxフラグ（※マーク）
+       ⑤税率ごとの支払対価の額・適用税率: deliveredAmountStr + taxRate
+       ⑥税率ごとの消費税額: taxAmountStr -->
   <div class="section-title">■ 今回の納品内容</div>
-  <table style="margin-bottom:12px;">
+  <table style="margin-bottom:4px;">
     <thead>
       <tr>
         <th style="width:6%">No.</th>
         <th style="width:44%">成果物・業務内容</th>
         <th style="width:20%">仕様</th>
-        <th style="width:15%">納品日</th>
-        <th style="width:15%">金額（税抜）</th>
+        <th style="width:15%">納品日 ③</th>
+        <th style="width:15%">支払対価（税抜）⑤</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td class="center">①{{itemNo}}</td>
-        <td>{{description}}</td>
+        <td>{{#if isReducedTax}}<span class="reduced-mark">※</span>{{/if}}{{description}}</td>
         <td>{{spec}}</td>
         <td class="center">{{deliveredAt}}</td>
         <td class="right">¥{{deliveredAmountStr}}</td>
       </tr>
       <tr>
-        <td colspan="4" class="right">消費税（{{taxRate}}%）</td>
+        <td colspan="4" class="right">
+          消費税（{{taxRate}}%{{#if isReducedTax}}・軽減税率対象{{/if}}）⑥
+        </td>
         <td class="right">¥{{taxAmountStr}}</td>
       </tr>
       <tr class="total-row">
@@ -207,6 +272,9 @@
       </tr>
     </tbody>
   </table>
+  {{#if isReducedTax}}
+  <div class="reduced-note">※ 軽減税率（8%）対象品目</div>
+  {{/if}}
 
   <!-- 変更履歴（あれば） -->
   {{#if hasChangeLogs}}
@@ -225,17 +293,18 @@
   </div>
   {{/if}}
 
-  <!-- 検収条件・支払条件 -->
+  <!-- 支払条件・発注情報 -->
   <div class="conditions">
-    <div class="condition-box">
-      <h3>■ 検収条件</h3>
-      <p>検収期間: 納品日より <span class="highlight">{{inspectionDays}}日間</span></p>
-      <p>検収期限: <span class="highlight">{{inspectionDeadline}}</span></p>
-    </div>
     <div class="condition-box">
       <h3>■ 支払条件</h3>
       <p>{{paymentConditionSummary}}</p>
       <p>支払期日: <span class="highlight">{{paymentDueDate}}</span></p>
+    </div>
+    <div class="condition-box">
+      <h3>■ 振込先</h3>
+      <p>{{bankName}} {{branchName}}</p>
+      <p>{{accountType}} {{accountNo}}</p>
+      <p>口座名義: {{accountHolder}}</p>
     </div>
     <div class="condition-box">
       <h3>■ 発注情報</h3>
@@ -245,14 +314,19 @@
     </div>
   </div>
 
-  <div class="stamp-area">
-    <div class="stamp-box">担当者</div>
-    <div class="stamp-box">法務部長</div>
-    <div class="stamp-box">取締役</div>
-  </div>
 
-  <div class="doc-footer">
-    本書は {{generatedAt}} に LegalBridge により自動生成されました　|　株式会社アークライト 法務部
+
+  <!-- みなし同意 -->
+  <div class="section-title">■ 本検収書の内容に関するご確認のお願い</div>
+  <div class="confirm-box">
+    <p>本検収書にご記載の内容（検収対象成果物、仕様、数量、検収日、金額等）についてご確認のうえ、記載事項に相違または異議がある場合は、本書が貴殿に到達した日の翌日（同日が営業日でない場合は翌営業日）から起算して <strong>5営業日以内</strong> に、下記連絡先宛に書面または電子メールにより、その旨および具体的内容をご通知くださいますようお願いいたします。</p>
+    <p>上記期間内に何らのご通知もいただけない場合、本検収書の記載内容（検収日、検収金額、検収対象の範囲を含みます。）について貴殿にご異議がないものとして取り扱わせていただきます。</p>
+    <p class="proviso">※ 本取扱いは、製造委託等に係る中小受託事業者に対する代金の支払の遅延等の防止に関する法律（中小受託取引適正化法）、特定受託事業者に係る取引の適正化等に関する法律その他関連法令に基づき貴殿に認められる権利を制限するものではありません。</p>
+    <div class="contact">
+      <strong>【ご連絡先】</strong><br>
+      株式会社アークライト　{{inspectorDept}}　担当: {{inspectorName}}<br>
+      E-mail: {{inspectorEmail}}
+    </div>
   </div>
 
 </body>

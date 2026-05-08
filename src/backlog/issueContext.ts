@@ -1,10 +1,15 @@
 import { BacklogIssue } from "./client";
-import { getDefaultDriveFolderKey } from "../documents/driveFolders";
+import { getDefaultDriveFolderKey, getDepartmentDriveFolderKey } from "../documents/driveFolders";
 
 type LegalRequestLike = {
   slackUserId?: string | null;
   driveFolderKey?: string | null;
   counterparty?: string | null;
+};
+
+type StaffLike = {
+  department?: string | null;
+  departmentCode?: string | null;
 };
 
 export function extractSlackUserId(raw?: string | null): string | undefined {
@@ -32,8 +37,24 @@ export function resolveRequesterSlackId(
   return extractSlackUserId(legalRequest?.slackUserId ?? undefined);
 }
 
-export function resolveDriveFolderKey(legalRequest?: LegalRequestLike | null): string {
-  return String(legalRequest?.driveFolderKey ?? "").trim() || getDefaultDriveFolderKey();
+export function resolveDriveFolderKey(
+  legalRequest?: LegalRequestLike | null,
+  staff?: StaffLike | null,
+): string {
+  const explicitKey = String(legalRequest?.driveFolderKey ?? "").trim();
+  if (explicitKey) {
+    return explicitKey;
+  }
+
+  const departmentKey = getDepartmentDriveFolderKey({
+    department: staff?.department,
+    departmentCode: staff?.departmentCode,
+  });
+  if (departmentKey) {
+    return departmentKey;
+  }
+
+  return getDefaultDriveFolderKey();
 }
 
 export function resolveIssueCounterparty(

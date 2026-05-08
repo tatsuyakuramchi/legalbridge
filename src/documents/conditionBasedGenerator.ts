@@ -112,12 +112,13 @@ async function renderAndSave(
 }
 
 async function uploadToDrive(filename: string, filePath: string): Promise<string> {
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+  const keyPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim();
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!keyPath || !folderId) throw new Error("Drive環境変数未設定");
+  if (!folderId) throw new Error("Drive環境変数未設定（GOOGLE_DRIVE_FOLDER_ID）");
 
+  const keyFile = keyPath && fs.existsSync(keyPath) ? keyPath : "";
   const auth = new google.auth.GoogleAuth({
-    keyFile: keyPath,
+    ...(keyFile ? { keyFile } : {}),
     scopes: ["https://www.googleapis.com/auth/drive.file"],
   });
   const drive = google.drive({ version: "v3", auth });

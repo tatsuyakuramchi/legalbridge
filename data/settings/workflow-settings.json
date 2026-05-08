@@ -2,5 +2,14 @@
   "version": 1,
   "approverSlackId": "",
   "stampOperatorSlackId": "",
-  "intakeChannelId": "C090WRVD1TM"
+  "intakeChannelId": "C090WRVD1TM",
+  "defaultDriveFolderKey": "legal",
+  "driveFolderOptions": [
+    {
+      "key": "legal",
+      "label": "法務共有",
+      "folderId": "1e7_saBqerqhn94cgeoiiO-fqpkdpF6Ej"
+    }
+  ],
+  "departmentDriveFolderRules": []
 }

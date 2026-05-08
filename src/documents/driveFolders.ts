@@ -1,3 +1,5 @@
+import { getWorkflowSettings } from "../workflow/workflowSettings";
+
 export interface DriveFolderOption {
   key: string;
   label: string;
@@ -5,6 +7,15 @@ export interface DriveFolderOption {
 }
 
 export function listDriveFolderOptions(): DriveFolderOption[] {
+  const settingsOptions = getWorkflowSettings().driveFolderOptions;
+  if (settingsOptions.length > 0) {
+    return settingsOptions.map((item) => ({
+      key: item.key,
+      label: item.label,
+      folderId: item.folderId,
+    }));
+  }
+
   const parsed = parseDriveFolderOptions(process.env.GOOGLE_DRIVE_FOLDER_OPTIONS);
   if (parsed.length > 0) {
     return parsed;
@@ -18,12 +29,42 @@ export function listDriveFolderOptions(): DriveFolderOption[] {
 }
 
 export function getDefaultDriveFolderKey(): string {
+  const workflowSettings = getWorkflowSettings();
   const options = listDriveFolderOptions();
-  const configuredDefault = process.env.GOOGLE_DRIVE_FOLDER_DEFAULT_KEY;
+  const configuredDefault = workflowSettings.defaultDriveFolderKey || process.env.GOOGLE_DRIVE_FOLDER_DEFAULT_KEY;
   if (configuredDefault && options.some((option) => option.key === configuredDefault)) {
     return configuredDefault;
   }
   return options[0]?.key ?? "default";
+}
+
+export function getDepartmentDriveFolderKey(input?: {
+  department?: string | null;
+  departmentCode?: string | null;
+}): string | undefined {
+  const settings = getWorkflowSettings();
+  const department = String(input?.department ?? "").trim();
+  const departmentCode = String(input?.departmentCode ?? "").trim();
+
+  if (!department && !departmentCode) {
+    return undefined;
+  }
+
+  if (departmentCode) {
+    const matchedByCode = settings.departmentDriveFolderRules.find((rule) => rule.departmentCode === departmentCode);
+    if (matchedByCode?.driveFolderKey) {
+      return matchedByCode.driveFolderKey;
+    }
+  }
+
+  if (department) {
+    const matchedByDepartment = settings.departmentDriveFolderRules.find((rule) => rule.department === department);
+    if (matchedByDepartment?.driveFolderKey) {
+      return matchedByDepartment.driveFolderKey;
+    }
+  }
+
+  return undefined;
 }
 
 export function resolveDriveFolderId(driveFolderKey?: string): string | undefined {

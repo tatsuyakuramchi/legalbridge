@@ -35,12 +35,11 @@ export async function downloadSlackFile(params: {
 }
 
 export async function tryUploadToDrive(filename: string, filePath: string): Promise<string | undefined> {
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
   const folderId = resolveDriveFolderId();
-  if (!keyPath || !folderId) {
+  if (!folderId) {
     return undefined;
   }
-  return uploadToSpecificDriveFolder(filename, filePath, keyPath, folderId);
+  return uploadToSpecificDriveFolder(filename, filePath, folderId);
 }
 
 export async function tryUploadToDriveFolder(
@@ -48,36 +47,44 @@ export async function tryUploadToDriveFolder(
   filePath: string,
   driveFolderKey?: string,
 ): Promise<string | undefined> {
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
   const folderId = resolveDriveFolderId(driveFolderKey);
-  if (!keyPath || !folderId) {
+  if (!folderId) {
     return undefined;
   }
 
-  return uploadToSpecificDriveFolder(filename, filePath, keyPath, folderId);
+  return uploadToSpecificDriveFolder(filename, filePath, folderId);
 }
 
 async function uploadToSpecificDriveFolder(
   filename: string,
   filePath: string,
-  keyPath: string,
   folderId: string,
 ): Promise<string> {
+  const keyPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim();
+  const keyFile = keyPath && fs.existsSync(keyPath) ? keyPath : "";
   const auth = new google.auth.GoogleAuth({
-    keyFile: keyPath,
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
+    ...(keyFile ? { keyFile } : {}),
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
   const drive = google.drive({ version: "v3", auth });
   const mimeType = filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+
+  await drive.files.get({
+    fileId: folderId,
+    fields: "id,name,driveId",
+    supportsAllDrives: true,
+  });
 
   const res = await drive.files.create({
     requestBody: { name: filename, parents: [folderId] },
     media: { mimeType, body: fs.createReadStream(filePath) },
     fields: "id, webViewLink",
+    supportsAllDrives: true,
   });
   await drive.permissions.create({
     fileId: res.data.id!,
     requestBody: { type: "anyone", role: "reader" },
+    supportsAllDrives: true,
   });
   return res.data.webViewLink ?? `https://drive.google.com/file/d/${res.data.id}`;
 }

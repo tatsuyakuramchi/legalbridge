@@ -112,15 +112,16 @@ export async function generateDocument(doc: DocumentData): Promise<GeneratedDocu
 // ---- Google Drive アップロード ----
 
 async function uploadToDrive(filename: string, filePath: string): Promise<string> {
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+  const keyPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim();
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-  if (!keyPath || !folderId) {
-    throw new Error("Google Drive環境変数が未設定です（GOOGLE_SERVICE_ACCOUNT_KEY_PATH, GOOGLE_DRIVE_FOLDER_ID）");
+  if (!folderId) {
+    throw new Error("Google Drive環境変数が未設定です（GOOGLE_DRIVE_FOLDER_ID）");
   }
 
+  const keyFile = keyPath && fs.existsSync(keyPath) ? keyPath : "";
   const auth = new google.auth.GoogleAuth({
-    keyFile: keyPath,
+    ...(keyFile ? { keyFile } : {}),
     scopes: ["https://www.googleapis.com/auth/drive.file"],
   });
 

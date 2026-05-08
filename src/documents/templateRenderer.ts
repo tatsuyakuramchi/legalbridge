@@ -104,6 +104,7 @@ export interface RenderHtmlOptions {
 export async function renderHtmlDocument(options: RenderHtmlOptions): Promise<RenderedDocument> {
   const { html, outputBasename } = options;
   const uploadDrive = options.uploadToDrive !== false;
+  const requirePdf = process.env.REQUIRE_PDF_OUTPUT === "1";
 
   // 一時ファイルに保存
   const tmpDir = path.resolve(__dirname, "../../tmp");
@@ -129,9 +130,15 @@ export async function renderHtmlDocument(options: RenderHtmlOptions): Promise<Re
       fs.unlinkSync(htmlPath);
       console.log(`[Renderer] PDF生成: ${filename}`);
     } catch (e) {
+      if (requirePdf) {
+        throw new Error(`PDF生成に失敗しました。WeasyPrint実行エラー: ${e}`);
+      }
       console.warn(`[Renderer] WeasyPrint失敗、HTMLで続行: ${e}`);
     }
   } else {
+    if (requirePdf) {
+      throw new Error("PDF生成に失敗しました。WeasyPrintコマンドが利用できません。");
+    }
     console.log(`[Renderer] WeasyPrint未インストール、HTMLで保存: ${filename}`);
   }
 

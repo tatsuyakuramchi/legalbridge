@@ -280,7 +280,9 @@ export async function buildRenderItemsForIssue(
 ): Promise<RenderOptions[]> {
   await ensureBacklogDocumentNumber(issueKey, issueTypeName, content);
   const legalRequest = await findLegalRequestByBacklogKey(issueKey);
-  const driveFolderKey = resolveDriveFolderKey(legalRequest);
+  const requesterSlackId = resolveRequesterSlackId(content as BacklogIssue, legalRequest);
+  const requesterStaff = requesterSlackId ? await findStaffBySlackUserId(requesterSlackId) : null;
+  const driveFolderKey = resolveDriveFolderKey(legalRequest, requesterStaff);
 
   if (issueTypeName === (process.env.BACKLOG_ISSUE_TYPE_LICENSE ?? "ライセンス契約")) {
     const getField = (envKey: string): string =>
@@ -1203,7 +1205,9 @@ async function notifyRequesterDriveFolder(
 ): Promise<void> {
   const issue = await backlogClient.getIssue(issueKey);
   const legalRequest = await findLegalRequestByBacklogKey(issueKey);
-  const folderKey = resolveDriveFolderKey(legalRequest);
+  const requesterSlackId = resolveRequesterSlackId(issue, legalRequest);
+  const requesterStaff = requesterSlackId ? await findStaffBySlackUserId(requesterSlackId) : null;
+  const folderKey = resolveDriveFolderKey(legalRequest, requesterStaff);
   const folderLabel = resolveDriveFolderLabel(folderKey);
   const folderId = resolveDriveFolderId(folderKey);
   const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : "";

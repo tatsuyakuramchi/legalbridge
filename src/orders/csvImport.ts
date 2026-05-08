@@ -6,6 +6,24 @@ import { buildPlanningImportContext, PlanningImportContext, savePlanningImportCo
 import { getPlanningImportSettings } from "./planningImportSettings";
 import { getPaymentMethodLabel, normalizePaymentMethodCode } from "../payments/methods";
 
+const PUBLISHING_BULK_FIXED_HEADERS = [
+  "担当者ID",
+  "発注日",
+  "支払日",
+  "コード",
+  "支払先（ペンネーム）",
+  "書籍名",
+  "業務概要",
+  "業務詳細（仕様）",
+  "単価（税込）",
+  "数量",
+  "発注金額（税別）",
+  "初校締切",
+  "再校締切",
+  "校了予定",
+  "備考",
+];
+
 export interface ParsedCsvOrderItem extends RawOrderItem {
   amountSource?: string;
   amountSourceLabel?: string;
@@ -210,7 +228,11 @@ function parseGenericOrderCsv(csvText: string): ParsedCsvOrderItem[] {
 
 function parsePlanningOrderCsv(csvText: string, options: ParseOrderCsvOptions): ParsedOrderCsvResult {
   const settings = getPlanningImportSettings(options.mappingProfileId);
-  const rows = parseCsvRows(csvText).filter((row) => getValueByHeader(row, settings.itemNameColumn));
+  const csv = parseCsvRowsWithHeaders(csvText);
+  if (options.mappingProfileId === "publishing_bulk") {
+    validatePublishingBulkHeaders(csv.headers);
+  }
+  const rows = csv.rows.filter((row) => getValueByHeader(row, settings.itemNameColumn));
   const groupMap = new Map<string, {
     vendorCode: string;
     vendorLookupValue?: string;
@@ -223,6 +245,10 @@ function parsePlanningOrderCsv(csvText: string, options: ParseOrderCsvOptions): 
   }>();
 
   const items = rows.map((row, index) => {
+    if (options.mappingProfileId === "publishing_bulk") {
+      validatePublishingBulkRow(row, index);
+    }
+
     const vendorCode = getValueByHeader(row, settings.vendorCodeColumn);
     const vendorLookupValue = getValueByHeader(row, settings.vendorLookupColumn);
     const requesterSlackUserId = getValueByHeader(row, settings.requesterSlackUserIdColumn) || undefined;
@@ -341,6 +367,10 @@ function parsePlanningOrderCsv(csvText: string, options: ParseOrderCsvOptions): 
 }
 
 function parseCsvRows(csvText: string): Array<Record<string, string>> {
+  return parseCsvRowsWithHeaders(csvText).rows;
+}
+
+function parseCsvRowsWithHeaders(csvText: string): { rows: Array<Record<string, string>>; headers: string[] } {
   const parsed = Papa.parse<Record<string, string>>(csvText, {
     header: true,
     skipEmptyLines: true,
@@ -351,7 +381,11 @@ function parseCsvRows(csvText: string): Array<Record<string, string>> {
     throw new Error(`CSVパースに失敗しました: ${parsed.errors[0].message}`);
   }
 
-  return parsed.data;
+  const headers = (parsed.meta.fields ?? []).map((field) => String(field ?? "").trim()).filter(Boolean);
+  return {
+    rows: parsed.data,
+    headers,
+  };
 }
 
 function readColumn(row: Record<string, string>, key: string): string {
@@ -437,6 +471,80 @@ function normalizePayMethod(value: string): string | undefined {
   const text = String(value ?? "").trim();
   if (!text) return undefined;
   return getPaymentMethodLabel(normalizePaymentMethodCode(text));
+}
+
+function validatePublishingBulkHeaders(headers: string[]): void {
+  const input = headers.map((header) => header.trim());
+  const expected = PUBLISHING_BULK_FIXED_HEADERS;
+  if (input.length !== expected.length) {
+    throw new Error(
+      `CSVヘッダーが固定フォーマットと一致しません。期待列数: ${expected.length} / 入力列数: ${input.length}`
+    );
+  }
+  for (let i = 0; i < expected.length; i += 1) {
+    if (input[i] !== expected[i]) {
+      throw new Error(
+        `CSVヘッダー${i + 1}列目が不一致です。期待: 「${expected[i]}」 / 入力: 「${input[i] || "(空)"}」`
+      );
+    }
+  }
+}
+
+function validatePublishingBulkRow(row: Record<string, string>, index: number): void {
+  const rowNo = index + 2;
+  const staffId = getValueByHeader(row, "担当者ID");
+  const orderDate = getValueByHeader(row, "発注日");
+  const paymentDate = getValueByHeader(row, "支払日");
+  const vendorCode = getValueByHeader(row, "コード");
+  const vendorName = getValueByHeader(row, "支払先（ペンネーム）");
+  const itemName = getValueByHeader(row, "書籍名");
+  const qtyText = getValueByHeader(row, "数量");
+  const unitPriceText = getValueByHeader(row, "単価（税込）");
+  const amountText = getValueByHeader(row, "発注金額（税別）");
+  const firstDeadline = getValueByHeader(row, "初校締切");
+  const secondDeadline = getValueByHeader(row, "再校締切");
+  const finalDeadline = getValueByHeader(row, "校了予定");
+
+  if (!staffId || !/^U[A-Z0-9]{8,}$/.test(staffId)) {
+    throw new Error(`CSV ${rowNo}行目: 担当者ID は SlackユーザーID形式 (例: U0123456789) で入力してください`);
+  }
+  if (!normalizeDate(orderDate)) {
+    throw new Error(`CSV ${rowNo}行目: 発注日 は日付形式で必須です`);
+  }
+  if (!normalizeDate(paymentDate)) {
+    throw new Error(`CSV ${rowNo}行目: 支払日 は日付形式で必須です`);
+  }
+  if (!vendorCode || !/^[A-Za-z0-9_-]+$/.test(vendorCode)) {
+    throw new Error(`CSV ${rowNo}行目: コード は英数字・ハイフン・アンダースコアのみで入力してください`);
+  }
+  if (!vendorName) {
+    throw new Error(`CSV ${rowNo}行目: 支払先（ペンネーム）は必須です`);
+  }
+  if (!itemName) {
+    throw new Error(`CSV ${rowNo}行目: 書籍名は必須です`);
+  }
+
+  const qty = parseOptionalInt(qtyText);
+  const unitPrice = parseOptionalInt(unitPriceText);
+  const amount = parseOptionalInt(amountText);
+  if (!qty || qty <= 0) {
+    throw new Error(`CSV ${rowNo}行目: 数量 は 1 以上の整数で入力してください`);
+  }
+  if (!unitPrice || unitPrice <= 0) {
+    throw new Error(`CSV ${rowNo}行目: 単価（税込） は 1 以上の整数で入力してください`);
+  }
+  if (!amount || amount <= 0) {
+    throw new Error(`CSV ${rowNo}行目: 発注金額（税別） は 1 以上の整数で入力してください`);
+  }
+  if (!normalizeDate(firstDeadline)) {
+    throw new Error(`CSV ${rowNo}行目: 初校締切 は日付形式で必須です`);
+  }
+  if (secondDeadline && !normalizeDate(secondDeadline)) {
+    throw new Error(`CSV ${rowNo}行目: 再校締切 は日付形式で入力してください`);
+  }
+  if (finalDeadline && !normalizeDate(finalDeadline)) {
+    throw new Error(`CSV ${rowNo}行目: 校了予定 は日付形式で入力してください`);
+  }
 }
 
 function getCustomFieldValue(issue: BacklogIssue, fieldIdRaw?: string): string | undefined {

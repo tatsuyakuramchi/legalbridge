@@ -116,8 +116,8 @@ function buildDefaultProfiles(): PlanningImportProfile[] {
       label: PROFILE_LABELS.publishing_bulk,
       settings: {
         ...DEFAULT_SETTINGS,
-        projectTitleSource: "manual",
-        projectTitleManualValue: "出版一括発注書",
+        projectTitleSource: "filename",
+        projectTitleManualValue: "",
         requesterSlackUserIdColumn: "担当者ID",
         orderDateColumn: "発注日",
         vendorLookupColumn: "支払先（ペンネーム）",

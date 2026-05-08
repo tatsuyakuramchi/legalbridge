@@ -20,12 +20,13 @@ import {
 import { calculatePaymentBreakdown } from "../payments/tax";
 import { backlog } from "../backlog/client";
 import { buildRoyaltyDeadlineCustomFields, resolveRoyaltyDeadlines } from "../backlog/deadlines";
-import { resolveDriveFolderKey } from "../backlog/issueContext";
+import { resolveDriveFolderKey, resolveRequesterSlackId } from "../backlog/issueContext";
 import { renderTemplate } from "./templateRenderer";
 import {
   findLicenseByBacklogKey,
   findIssueWorkflowByIssueKey,
   findLegalRequestByBacklogKey,
+  findStaffBySlackUserId,
   upsertLicenseContract,
   saveManufacturingEvent,
   incrementMgConsumed,
@@ -98,7 +99,9 @@ export async function generateRoyaltyFromIssue(
   const issue = await backlog.getIssue(issueKey);
   const snapshot = buildRoyaltyIssueSnapshot(issue);
   const legalRequest = await findLegalRequestByBacklogKey(issueKey);
-  const driveFolderKey = resolveDriveFolderKey(legalRequest);
+  const requesterSlackId = resolveRequesterSlackId(issue, legalRequest);
+  const requesterStaff = requesterSlackId ? await findStaffBySlackUserId(requesterSlackId) : null;
+  const driveFolderKey = resolveDriveFolderKey(legalRequest, requesterStaff);
 
   const licenseIssueKey = snapshot.licenseIssueKey;
   if (!licenseIssueKey) {
@@ -551,13 +554,14 @@ async function renderAndSave(
 }
 
 async function uploadToDrive(filename: string, filePath: string, driveFolderKey?: string): Promise<string> {
-  const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+  const keyPath = String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim();
   const { resolveDriveFolderId } = await import("./driveFolders");
   const folderId = resolveDriveFolderId(driveFolderKey);
-  if (!keyPath || !folderId) throw new Error("Drive環境変数未設定");
+  if (!folderId) throw new Error("Drive環境変数未設定（folderId）");
 
+  const keyFile = keyPath && fs.existsSync(keyPath) ? keyPath : "";
   const auth = new google.auth.GoogleAuth({
-    keyFile: keyPath,
+    ...(keyFile ? { keyFile } : {}),
     scopes: ["https://www.googleapis.com/auth/drive.file"],
   });
   const drive = google.drive({ version: "v3", auth });
