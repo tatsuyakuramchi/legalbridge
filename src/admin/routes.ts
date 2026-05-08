@@ -854,10 +854,35 @@ export function createAdminRouter(): Router {
     res.json({ ok: true, vendor });
   });
 
+  async function resolveContractVendorId(vendorIdentifier: string): Promise<number | null> {
+    const normalized = String(vendorIdentifier ?? "").trim();
+    if (!normalized) return null;
+    if (/^\d+$/.test(normalized)) {
+      return Number(normalized);
+    }
+    const legacyVendor = await prisma.$queryRawUnsafe(
+      `SELECT id
+         FROM vendors
+        WHERE vendor_code = $1
+           OR vendor_name = $1
+        LIMIT 1`,
+      normalized
+    );
+    if (!Array.isArray(legacyVendor) || legacyVendor.length === 0) {
+      return null;
+    }
+    const id = (legacyVendor[0] as { id?: number }).id;
+    return typeof id === "number" ? id : null;
+  }
+
   const listVendorContractsHandler = async (req: Request, res: Response) => {
     try {
       await ensureContractCapabilitiesColumns();
-      const vendorId = String(req.params.vendorId ?? "").trim();
+      const vendorId = await resolveContractVendorId(String(req.params.vendorId ?? ""));
+      if (vendorId == null) {
+        res.json({ ok: true, count: 0, contracts: [] });
+        return;
+      }
       const contracts = await prisma.$queryRawUnsafe(
         `SELECT * FROM contract_capabilities WHERE vendor_id = $1 ORDER BY COALESCE(effective_date, created_at) DESC, created_at DESC`,
         vendorId
@@ -871,7 +896,11 @@ export function createAdminRouter(): Router {
   const createVendorContractHandler = async (req: Request, res: Response) => {
     try {
       await ensureContractCapabilitiesColumns();
-      const vendorId = String(req.params.vendorId ?? "").trim();
+      const vendorId = await resolveContractVendorId(String(req.params.vendorId ?? ""));
+      if (vendorId == null) {
+        res.status(404).json({ ok: false, error: "対象取引先が見つかりません。" });
+        return;
+      }
       const incoming = req.body ?? {};
       const entries = CONTRACT_WRITABLE_FIELDS
         .filter((field) => Object.prototype.hasOwnProperty.call(incoming, field))
@@ -894,7 +923,11 @@ export function createAdminRouter(): Router {
   const updateVendorContractHandler = async (req: Request, res: Response) => {
     try {
       await ensureContractCapabilitiesColumns();
-      const vendorId = String(req.params.vendorId ?? "").trim();
+      const vendorId = await resolveContractVendorId(String(req.params.vendorId ?? ""));
+      if (vendorId == null) {
+        res.status(404).json({ ok: false, error: "対象取引先が見つかりません。" });
+        return;
+      }
       const contractId = String(req.params.contractId ?? "").trim();
       const incoming = req.body ?? {};
       const entries = CONTRACT_WRITABLE_FIELDS
@@ -928,7 +961,11 @@ export function createAdminRouter(): Router {
   const deleteVendorContractHandler = async (req: Request, res: Response) => {
     try {
       await ensureContractCapabilitiesColumns();
-      const vendorId = String(req.params.vendorId ?? "").trim();
+      const vendorId = await resolveContractVendorId(String(req.params.vendorId ?? ""));
+      if (vendorId == null) {
+        res.status(404).json({ ok: false, error: "対象取引先が見つかりません。" });
+        return;
+      }
       const contractId = String(req.params.contractId ?? "").trim();
       const result = await prisma.$queryRawUnsafe(
         `DELETE FROM contract_capabilities WHERE vendor_id = $1 AND id::text = $2 RETURNING *`,
@@ -4866,7 +4903,7 @@ function buildMasterAdminHtml(): string {
     });
 
     document.getElementById("addVendorContract").addEventListener("click", () => {
-      if (!selectedVendor || !selectedVendor.id) {
+      if (!selectedVendor || !selectedVendor.vendorCode) {
         document.getElementById("vendorContractsStatus").textContent = "先に取引先を選択してください。";
         document.getElementById("vendorContractsStatus").className = "status error";
         return;
@@ -5106,7 +5143,7 @@ function buildMasterAdminHtml(): string {
 
     async function refreshVendorContracts() {
       const statusEl = document.getElementById("vendorContractsStatus");
-      if (!selectedVendor || !selectedVendor.id) {
+      if (!selectedVendor || !selectedVendor.vendorCode) {
         vendorContracts = [];
         renderVendorContracts();
         return;
@@ -5114,7 +5151,7 @@ function buildMasterAdminHtml(): string {
       isLoadingVendorContracts = true;
       statusEl.textContent = "契約書一覧を読み込み中...";
       statusEl.className = "status";
-      const result = await fetchJson("/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts");
+      const result = await fetchJson("/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.vendorCode) + "/contracts");
       isLoadingVendorContracts = false;
       if (!result.ok) {
         statusEl.textContent = "❌ 契約書一覧の取得に失敗しました: " + (result.error || "unknown");
@@ -5130,7 +5167,7 @@ function buildMasterAdminHtml(): string {
     function renderVendorContracts() {
       const tbody = document.getElementById("vendorContractsRows");
       const infoEl = document.getElementById("selectedVendorInfo");
-      if (!selectedVendor || !selectedVendor.id) {
+      if (!selectedVendor || !selectedVendor.vendorCode) {
         infoEl.textContent = "取引先を選択すると、ここに紐づく契約書を表示します。";
         tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:16px;color:var(--muted);">取引先を選択してください。</td></tr>';
         return;
@@ -5232,7 +5269,7 @@ function buildMasterAdminHtml(): string {
     }
 
     async function saveVendorContract() {
-      if (!selectedVendor || !selectedVendor.id) return;
+      if (!selectedVendor || !selectedVendor.vendorCode) return;
       const payload = {
         record_type: val("vc_record_type"),
         contract_category: val("vc_contract_category"),
@@ -5268,7 +5305,7 @@ function buildMasterAdminHtml(): string {
         video_adaptation_allowed: document.getElementById("vc_video_adaptation_allowed").checked,
         game_adaptation_allowed: document.getElementById("vc_game_adaptation_allowed").checked,
       };
-      const base = "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts";
+      const base = "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.vendorCode) + "/contracts";
       const result = isEditingVendorContract && selectedVendorContract?.id
         ? await requestJson(base + "/" + encodeURIComponent(String(selectedVendorContract.id)), "PUT", payload)
         : await requestJson(base, "POST", payload);
@@ -5292,10 +5329,10 @@ function buildMasterAdminHtml(): string {
     window.editVendorContract = editVendorContract;
 
     async function deleteVendorContract(contractId) {
-      if (!selectedVendor || !selectedVendor.id) return;
+      if (!selectedVendor || !selectedVendor.vendorCode) return;
       if (!confirm("この契約書を削除しますか？")) return;
       const result = await requestJson(
-        "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts/" + encodeURIComponent(String(contractId)),
+        "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.vendorCode) + "/contracts/" + encodeURIComponent(String(contractId)),
         "DELETE"
       );
       const statusEl = document.getElementById("vendorContractsStatus");
