@@ -9883,10 +9883,7 @@ function buildContractAdminHtml(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>契約書生成</title>
   <style>${sharedAdminCss()}
-    .preview-layout { display: grid; grid-template-columns: 340px 1fr; gap: 14px; align-items: start; }
     .chip.active { border-color: var(--accent); background: #eef7ff; }
-    .preview-side { position: sticky; top: 12px; max-height: 82vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; }
-    .preview-main { min-width: 0; }
     .preview-variable-list { display: grid; gap: 8px; margin-top: 10px; }
     .preview-variable-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #f8f8fb; }
     .preview-variable-item.missing { border-style: dashed; background: #fff8f3; }
@@ -9896,10 +9893,6 @@ function buildContractAdminHtml(): string {
     .scope-switch .chip.active { border-color: var(--accent); background: #eef7ff; }
     .scope-summary { margin-bottom: 10px; }
     .scope-panel { margin-top: 0; }
-    @media(max-width: 1100px) {
-      .preview-layout { grid-template-columns: 1fr; }
-      .preview-side { position: static; max-height: none; }
-    }
   </style>
 </head>
 <body>
@@ -9959,21 +9952,12 @@ function buildContractAdminHtml(): string {
     </section>
     <section class="card">
       <h2>文面プレビュー</h2>
-      <p class="helper">Drive 出力の前に、現在の下書き値で HTML レンダリングした文面を確認できます。左のマッピングから入力欄へ直接ジャンプできます。</p>
+      <p class="helper">Drive 出力の前に、現在の下書き値で HTML レンダリングした文面を確認できます。下のマッピングから入力欄へ直接ジャンプできます。</p>
       <div id="renderPreviewMeta" class="sample">プレビューを生成すると、想定ファイル名と保存先を表示します。</div>
       <div id="renderPreviewTabs" class="chip-list"></div>
-      <div class="preview-layout">
-        <aside class="preview-side">
-          <div class="actions" style="margin-top:0; margin-bottom:8px;">
-            <button id="downloadMappingBtn" type="button" class="ghost">テンプレートマッピングJSONを保存</button>
-          </div>
-          <div id="previewVariableSummary" class="summary-box">プレビューを生成すると、変数マッピングを表示します。</div>
-          <div id="previewVariableList" class="preview-variable-list"></div>
-        </aside>
-        <div class="preview-main">
-          <iframe id="renderPreviewFrame" title="文面プレビュー" style="width:100%; min-height:900px; border:1px solid var(--line); background:#fff;"></iframe>
-        </div>
-      </div>
+      <div id="previewVariableSummary" class="summary-box">プレビューを生成すると、変数マッピングを表示します。</div>
+      <div id="previewVariableList" class="preview-variable-list"></div>
+      <iframe id="renderPreviewFrame" title="文面プレビュー" style="width:100%; min-height:900px; border:1px solid var(--line); background:#fff;"></iframe>
     </section>
   </main>
   <script>
@@ -10001,7 +9985,6 @@ function buildContractAdminHtml(): string {
     const renderPreviewFrame = document.getElementById("renderPreviewFrame");
     const previewVariableSummary = document.getElementById("previewVariableSummary");
     const previewVariableList = document.getElementById("previewVariableList");
-    const downloadMappingBtn = document.getElementById("downloadMappingBtn");
     const recentIssues = document.getElementById("recentIssues");
     const attentionIssues = document.getElementById("attentionIssues");
     const params = new URLSearchParams(window.location.search);
@@ -10064,29 +10047,6 @@ function buildContractAdminHtml(): string {
         payload.warnings?.length ? "<br><strong>事前チェック:</strong><br>" + renderWarnings(payload.warnings) : "",
         payload.generatedDocuments?.length ? "<br><strong>生成済み文書:</strong><br>" + renderGeneratedDocuments(payload.generatedDocuments) : "",
       ].join("");
-    });
-
-    downloadMappingBtn.addEventListener("click", () => {
-      const preview = latestPreviewDocuments[activePreviewIndex];
-      if (!preview) {
-        status.className = "status error";
-        status.textContent = "先に文面プレビューを生成してください。";
-        return;
-      }
-      const payload = {
-        templateKey: preview.templateKey,
-        outputBasename: preview.outputBasename,
-        mappedInputs: preview.mappedInputs || [],
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = (preview.templateKey || "template") + "_mapping.json";
-      link.click();
-      URL.revokeObjectURL(url);
-      status.className = "status success";
-      status.textContent = "テンプレートマッピングJSONを保存しました。";
     });
 
     preflightBtn.addEventListener("click", async () => {
