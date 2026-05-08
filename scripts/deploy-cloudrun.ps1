@@ -8,6 +8,7 @@ param(
   [string]$RepositoryName = "legalbridge",
   [string]$EnvFile = "cloudrun.gateway.env.yaml",
   [string]$SecretFile = "cloudrun.gateway.secrets.yaml",
+  [string]$DockerfilePath = "Dockerfile.cloudrun",
   [int]$MaxInstances = 3,
   [string]$ServiceAccountEmail = ""
 )
@@ -18,7 +19,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $envFilePath = Join-Path $repoRoot $EnvFile
 $secretFilePath = Join-Path $repoRoot $SecretFile
-$dockerFilePath = Join-Path $repoRoot "Dockerfile.cloudrun"
+$dockerFilePath = Join-Path $repoRoot $DockerfilePath
 $dockerBuildPath = Join-Path $repoRoot "Dockerfile"
 
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
@@ -34,7 +35,7 @@ if (-not (Test-Path $secretFilePath)) {
 }
 
 if (-not (Test-Path $dockerFilePath)) {
-  throw "Dockerfile.cloudrun not found: $dockerFilePath"
+  throw "Dockerfile not found: $dockerFilePath"
 }
 
 if ($MaxInstances -lt 1) {

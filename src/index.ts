@@ -136,6 +136,9 @@ expressApp.use(express.urlencoded({ extended: true, limit: "20mb" }));
 expressApp.get("/favicon.ico", (_req, res) => {
   res.status(204).end();
 });
+expressApp.get("/", (_req, res) => {
+  res.redirect(302, "/admin");
+});
 
 // ヘルスチェック
 expressApp.get("/health", (_req, res) => {
