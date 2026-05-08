@@ -108,6 +108,15 @@ function Ensure-SecretVersion {
   }
 }
 
+function Should-KeepExistingSecret {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$SecretValue
+  )
+
+  return $SecretValue -eq "__KEEP_EXISTING_SECRET__"
+}
+
 function Build-SecretBindingArg {
   param(
     [Parameter(Mandatory = $true)]
@@ -147,7 +156,11 @@ try {
   }
 
   foreach ($secretName in $secretValues.Keys) {
-    Ensure-SecretVersion -ProjectId $ProjectId -SecretName $secretName -SecretValue ([string]$secretValues[$secretName])
+    $secretValue = [string]$secretValues[$secretName]
+    if (Should-KeepExistingSecret -SecretValue $secretValue) {
+      continue
+    }
+    Ensure-SecretVersion -ProjectId $ProjectId -SecretName $secretName -SecretValue $secretValue
   }
 
   $secretBindings = Build-SecretBindingArg -Secrets $secretValues -MountedSecrets $mountedSecrets
