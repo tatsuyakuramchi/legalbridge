@@ -41,6 +41,13 @@ Handlebars.registerHelper("eq", (a: unknown, b: unknown) => a === b);
 Handlebars.registerHelper("if_eq", function(this: unknown, a: unknown, b: unknown, options: Handlebars.HelperOptions) {
   return a === b ? options.fn(this) : options.inverse(this);
 });
+Handlebars.registerHelper("lb_map", (key: unknown, value: unknown) => {
+  const keyText = escapeHtmlText(String(key ?? ""));
+  const valueText = escapeHtmlText(value == null ? "" : String(value));
+  return new Handlebars.SafeString(
+    `<span data-lb-map-key="${keyText}" class="lb-map-token">${valueText}</span>`
+  );
+});
 
 // ================================================================
 // 型定義
@@ -61,15 +68,8 @@ export interface RenderedDocument {
 }
 
 function compileTemplateHtml(templateKey: TemplateKey, variables: Record<string, unknown>): string {
-  const templateFile = TEMPLATE_MAP[templateKey];
-  const templatePath = path.resolve(__dirname, "../../templates", templateFile);
-
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`テンプレートファイルが見つかりません: ${templateFile}`);
-  }
-
+  const source = loadTemplateSource(templateKey);
   const merged = { ...ARCLIGHT_DEFAULTS, ...variables };
-  const source = fs.readFileSync(templatePath, "utf-8");
   const template = Handlebars.compile(source);
   return template(merged);
 }
@@ -179,6 +179,22 @@ export function renderTemplateHtml(
   return compileTemplateHtml(templateKey, variables);
 }
 
+export function extractTemplateVariables(templateKey: TemplateKey): string[] {
+  const source = loadTemplateSource(templateKey);
+  return Array.from(extractTemplateVariablesFromSource(source));
+}
+
+export function renderTemplateHtmlWithMapping(
+  templateKey: TemplateKey,
+  variables: Record<string, unknown>
+): string {
+  const source = loadTemplateSource(templateKey);
+  const instrumented = instrumentTemplateSourceForMapping(source);
+  const merged = { ...ARCLIGHT_DEFAULTS, ...variables };
+  const template = Handlebars.compile(instrumented);
+  return template(merged);
+}
+
 // ================================================================
 // ユーティリティ
 // ================================================================
@@ -200,6 +216,63 @@ function resolveWeasyPrintCommand(): string | null {
     }
   }
   return null;
+}
+
+const MUSTACHE_PATTERN = /{{\s*([^{}]+?)\s*}}/g;
+const SIMPLE_VARIABLE_PATTERN = /^[A-Za-z0-9_$.\-ぁ-んァ-ヶー一-龠]+$/;
+const RESERVED_TOKENS = new Set(["else", "this"]);
+
+function loadTemplateSource(templateKey: TemplateKey): string {
+  const templateFile = TEMPLATE_MAP[templateKey];
+  const templatePath = path.resolve(__dirname, "../../templates", templateFile);
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(`テンプレートファイルが見つかりません: ${templateFile}`);
+  }
+  return fs.readFileSync(templatePath, "utf-8");
+}
+
+function extractTemplateVariablesFromSource(source: string): Set<string> {
+  const variables = new Set<string>();
+  source.replace(MUSTACHE_PATTERN, (_token, rawInner: string) => {
+    const inner = String(rawInner ?? "").trim();
+    if (isSimpleTemplateVariable(inner)) {
+      variables.add(inner);
+    }
+    return "";
+  });
+  return variables;
+}
+
+function instrumentTemplateSourceForMapping(source: string): string {
+  return source.replace(MUSTACHE_PATTERN, (token, rawInner: string) => {
+    const inner = String(rawInner ?? "").trim();
+    if (!isSimpleTemplateVariable(inner)) {
+      return token;
+    }
+    const escapedInner = inner.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return `{{{lb_map "${escapedInner}" ${inner}}}}`;
+  });
+}
+
+function isSimpleTemplateVariable(value: string): boolean {
+  if (!value) return false;
+  if (RESERVED_TOKENS.has(value)) return false;
+  if (value.startsWith("#") || value.startsWith("/") || value.startsWith(">") || value.startsWith("!")) {
+    return false;
+  }
+  if (!SIMPLE_VARIABLE_PATTERN.test(value)) {
+    return false;
+  }
+  return true;
+}
+
+function escapeHtmlText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /**

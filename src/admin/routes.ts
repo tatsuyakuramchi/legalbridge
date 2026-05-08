@@ -12,7 +12,7 @@ import { getDefaultDriveFolderKey, listDriveFolderOptions, resolveDriveFolderId,
 import { tryUploadToDrive } from "../documents/fileStorage";
 import { generateDeliveryDocuments } from "../documents/partialDeliveryGenerator";
 import { generateRoyaltyFromIssue, getRoyaltyIssueSnapshot, resolveRoyaltyLicenseCondition } from "../documents/royaltyGenerator";
-import { renderTemplateHtml } from "../documents/templateRenderer";
+import { extractTemplateVariables, renderTemplateHtmlWithMapping } from "../documents/templateRenderer";
 import { buildRenderItemsForIssue, generateDocumentsForIssue } from "../webhook/backlog";
 import { getPaymentMethodLabel, normalizePaymentMethodCode, PAYMENT_METHOD_OPTIONS } from "../payments/methods";
 import { summarizeLicenseMoneyCondition } from "../payments/performance";
@@ -1864,6 +1864,8 @@ export function createAdminRouter(): Router {
         staff,
         vendor,
       });
+      const visibleFieldKeys = getContractDraftFieldKeysForIssueType(issueTypeName);
+      const inputScopes = buildContractInputScopes(visibleFieldKeys);
 
       res.json({
         ok: true,
@@ -1876,7 +1878,9 @@ export function createAdminRouter(): Router {
         draft,
         sections: Array.from(new Set(CONTRACT_DRAFT_FIELDS.map((field) => field.section))),
         fields: CONTRACT_DRAFT_FIELDS,
-        visibleFieldKeys: getContractDraftFieldKeysForIssueType(issueTypeName),
+        visibleFieldKeys,
+        commonFieldKeys: inputScopes.common,
+        specificFieldKeys: inputScopes.specific,
         draftUpdatedAt: workflow?.documentDraftUpdatedAt ?? null,
         staffSource: staff ? { slackUserId: staff.slackUserId, staffName: staff.staffName, department: staff.department ?? "", departmentCode: staff.departmentCode ?? "" } : null,
         vendorSource: vendor ? { vendorCode: vendor.vendorCode, vendorName: vendor.vendorName } : null,
@@ -2076,20 +2080,35 @@ export function createAdminRouter(): Router {
         created: issue.created,
         updated: issue.updated,
       }, mergedDraft);
+      const visibleFieldKeys = getContractDraftFieldKeysForIssueType(issueTypeName);
+      const inputScopes = buildContractInputScopes(visibleFieldKeys);
 
-      const previews = renderItems.map((item) => ({
-        templateKey: item.templateKey,
-        outputBasename: item.outputBasename,
-        driveFolderKey: item.driveFolderKey ?? null,
-        driveFolderLabel: resolveDriveFolderLabel(item.driveFolderKey),
-        driveEnabled: Boolean(resolveDriveFolderId(item.driveFolderKey) && hasDriveAuthConfigured()),
-        html: renderTemplateHtml(item.templateKey, item.variables),
-      }));
+      const previews = renderItems.map((item) => {
+        const templateVariables = extractTemplateVariables(item.templateKey);
+        const mappedInputs = buildTemplateInputMappings(
+          templateVariables,
+          mergedDraft,
+          visibleFieldKeys,
+        );
+        return {
+          templateKey: item.templateKey,
+          outputBasename: item.outputBasename,
+          driveFolderKey: item.driveFolderKey ?? null,
+          driveFolderLabel: resolveDriveFolderLabel(item.driveFolderKey),
+          driveEnabled: Boolean(resolveDriveFolderId(item.driveFolderKey) && hasDriveAuthConfigured()),
+          html: renderTemplateHtmlWithMapping(item.templateKey, item.variables),
+          templateVariables,
+          mappedInputs,
+        };
+      });
 
       res.json({
         ok: true,
         issueKey,
         issueTypeName,
+        visibleFieldKeys,
+        commonFieldKeys: inputScopes.common,
+        specificFieldKeys: inputScopes.specific,
         previews,
         previewReport: {
           documentCount: previews.length,
@@ -2967,6 +2986,104 @@ const CONTRACT_DRAFT_FIELDS: Array<{ key: string; label: string; section: string
   { key: "REMARKS", label: "備考", section: "特記事項", multiline: true },
 ];
 
+const CONTRACT_DRAFT_FIELD_BY_KEY = new Map(
+  CONTRACT_DRAFT_FIELDS.map((field) => [field.key, field])
+);
+
+const CONTRACT_COMMON_FIELD_KEYS = new Set<string>([
+  "CONTRACT_NO",
+  "CONTRACT_DATE",
+  "PARTY_A_NAME",
+  "PARTY_A_ADDRESS",
+  "PARTY_A_REPRESENTATIVE",
+  "STAFF_DEPARTMENT",
+  "STAFF_NAME",
+  "STAFF_PHONE",
+  "STAFF_EMAIL",
+  "PARTY_B_NAME",
+  "PARTY_B_ADDRESS",
+  "PARTY_B_REPRESENTATIVE",
+  "VENDOR_NAME",
+  "VENDOR_ADDRESS",
+  "VENDOR_REP",
+  "VENDOR_PHONE",
+  "VENDOR_EMAIL",
+  "BANK_NAME",
+  "BRANCH_NAME",
+  "ACCOUNT_TYPE",
+  "ACCOUNT_NUMBER",
+  "ACCOUNT_HOLDER_KANA",
+  "IS_INVOICE_ISSUER",
+  "invoiceRegistrationDisplay",
+  "JURISDICTION",
+  "SPECIAL_TERMS",
+  "REMARKS",
+]);
+
+const CONTRACT_TEMPLATE_VARIABLE_ALIASES: Record<string, string> = {
+  PARTY_A_REP: "PARTY_A_REPRESENTATIVE",
+  PARTY_B_REP: "PARTY_B_REPRESENTATIVE",
+  COUNTERPARTY_NAME: "PARTY_B_NAME",
+  COUNTERPARTY_ADDRESS: "PARTY_B_ADDRESS",
+  COUNTERPARTY_REPRESENTATIVE: "PARTY_B_REPRESENTATIVE",
+};
+
+type ContractInputGroup = "common" | "specific";
+
+function resolveDraftFieldKeyFromTemplateVariable(templateVariable: string): string | null {
+  if (CONTRACT_DRAFT_FIELD_BY_KEY.has(templateVariable)) {
+    return templateVariable;
+  }
+  const alias = CONTRACT_TEMPLATE_VARIABLE_ALIASES[templateVariable];
+  return alias && CONTRACT_DRAFT_FIELD_BY_KEY.has(alias) ? alias : null;
+}
+
+function buildContractInputScopes(visibleFieldKeys: string[]): { common: string[]; specific: string[] } {
+  const common: string[] = [];
+  const specific: string[] = [];
+  for (const key of visibleFieldKeys) {
+    if (CONTRACT_COMMON_FIELD_KEYS.has(key)) {
+      common.push(key);
+    } else {
+      specific.push(key);
+    }
+  }
+  return { common, specific };
+}
+
+function buildTemplateInputMappings(
+  templateVariables: string[],
+  draft: Record<string, string>,
+  visibleFieldKeys: string[],
+): Array<{
+  templateVariable: string;
+  draftFieldKey: string | null;
+  draftFieldLabel: string | null;
+  group: ContractInputGroup | null;
+  value: string;
+  mapped: boolean;
+  visible: boolean;
+}> {
+  const visible = new Set(visibleFieldKeys);
+  return templateVariables.map((templateVariable) => {
+    const draftFieldKey = resolveDraftFieldKeyFromTemplateVariable(templateVariable);
+    const field = draftFieldKey ? CONTRACT_DRAFT_FIELD_BY_KEY.get(draftFieldKey) : undefined;
+    const group: ContractInputGroup | null = draftFieldKey
+      ? (CONTRACT_COMMON_FIELD_KEYS.has(draftFieldKey) ? "common" : "specific")
+      : null;
+    const fieldVisible = draftFieldKey ? visible.has(draftFieldKey) : false;
+    return {
+      templateVariable,
+      draftFieldKey: draftFieldKey ?? null,
+      draftFieldLabel: field?.label ?? null,
+      group,
+      value: draftFieldKey ? String(draft[draftFieldKey] ?? "") : "",
+      mapped: Boolean(draftFieldKey),
+      visible: fieldVisible,
+    };
+  });
+}
+
 function getContractDraftFieldKeysForIssueType(issueTypeName: string): string[] {
   const commonBase = [
     "CONTRACT_NO",
@@ -3178,8 +3295,11 @@ async function buildContractDraft(issueKey: string, issue: Awaited<ReturnType<ty
     partyAName: staff?.partyAName,
     departmentCode: staff?.departmentCode ?? undefined,
   });
+  const counterpartyAddress = getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_ADDRESS);
+  const counterpartyRepresentative = getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_REP);
+  const vendorRepresentative = vendor?.vendorRepresentative || vendor?.contactName || "";
 
-  const draft = {
+  const fallbackDraft = {
     CONTRACT_NO: contractNo,
     CONTRACT_DATE: contractDate,
     PARTY_A_NAME: staff?.partyAName ?? "",
@@ -3189,12 +3309,13 @@ async function buildContractDraft(issueKey: string, issue: Awaited<ReturnType<ty
     STAFF_NAME: staff?.staffName ?? "",
     STAFF_PHONE: staff?.phone ?? "",
     STAFF_EMAIL: staff?.email ?? "",
-    PARTY_B_NAME: counterparty,
-    PARTY_B_ADDRESS: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_ADDRESS),
-    PARTY_B_REPRESENTATIVE: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_REP),
+    PARTY_B_NAME: counterparty || vendor?.vendorName || "",
+    PARTY_B_ADDRESS: counterpartyAddress || vendor?.address || "",
+    PARTY_B_REPRESENTATIVE: counterpartyRepresentative || vendorRepresentative || "",
+    PARTY_B_REP: counterpartyRepresentative || vendorRepresentative || "",
     VENDOR_NAME: counterparty || vendor?.vendorName || "",
-    VENDOR_ADDRESS: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_ADDRESS) || vendor?.address || "",
-    VENDOR_REP: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_COUNTERPARTY_REP) || vendor?.vendorRepresentative || vendor?.contactName || "",
+    VENDOR_ADDRESS: counterpartyAddress || vendor?.address || "",
+    VENDOR_REP: counterpartyRepresentative || vendorRepresentative || "",
     VENDOR_PHONE: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_VENDOR_PHONE) || vendor?.phone || "",
     VENDOR_EMAIL: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_VENDOR_EMAIL) || vendor?.email || "",
     BANK_NAME: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_BANK_NAME) || vendor?.bankName || "",
@@ -3265,8 +3386,13 @@ async function buildContractDraft(issueKey: string, issue: Awaited<ReturnType<ty
     DELIVERY_FEE_THRESHOLD: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_DELIVERY_FEE_THRESHOLD),
     SPECIAL_TERMS: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_SPECIAL_NOTES),
     REMARKS: getIssueCustomFieldValue(issue, process.env.BACKLOG_FIELD_REMARKS),
-    ...savedDraft,
   };
+  const draft: Record<string, string> = { ...fallbackDraft, ...savedDraft };
+  for (const [key, fallbackValue] of Object.entries(fallbackDraft)) {
+    if (!String(draft[key] ?? "").trim()) {
+      draft[key] = fallbackValue;
+    }
+  }
 
   const warnings = buildContractWarnings({
     issueTypeName: issue.issueType?.name ?? "",
@@ -9756,7 +9882,25 @@ function buildContractAdminHtml(): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>契約書生成</title>
-  <style>${sharedAdminCss()}</style>
+  <style>${sharedAdminCss()}
+    .preview-layout { display: grid; grid-template-columns: 340px 1fr; gap: 14px; align-items: start; }
+    .chip.active { border-color: var(--accent); background: #eef7ff; }
+    .preview-side { position: sticky; top: 12px; max-height: 82vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; }
+    .preview-main { min-width: 0; }
+    .preview-variable-list { display: grid; gap: 8px; margin-top: 10px; }
+    .preview-variable-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #f8f8fb; }
+    .preview-variable-item.missing { border-style: dashed; background: #fff8f3; }
+    .preview-variable-item .meta { font-size: 12px; color: #6b7280; }
+    .preview-variable-item .actions { display: flex; gap: 6px; margin-top: 6px; }
+    .scope-switch { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+    .scope-switch .chip.active { border-color: var(--accent); background: #eef7ff; }
+    .scope-summary { margin-bottom: 10px; }
+    .scope-panel { margin-top: 0; }
+    @media(max-width: 1100px) {
+      .preview-layout { grid-template-columns: 1fr; }
+      .preview-side { position: static; max-height: none; }
+    }
+  </style>
 </head>
 <body>
   ${buildAdminNav("contracts")}
@@ -9803,6 +9947,8 @@ function buildContractAdminHtml(): string {
       <p id="editorSummary" class="helper">Backlog と DB から補完した値が初期表示されます。必要な項目だけ編集して保存してください。</p>
       <div id="editorFlow" class="summary-box">課題を読み込むと、この文書種別の手順を表示します。</div>
       <div id="editorMeta" class="sample">課題を読み込むと、編集元の情報と下書き更新日時を表示します。</div>
+      <div id="scopeSwitch" class="scope-switch"></div>
+      <div id="scopeSummary" class="sample scope-summary">共通入力と文書専用入力を分けて編集できます。</div>
       <div id="editorSections"></div>
     </section>
     <section class="card">
@@ -9813,14 +9959,26 @@ function buildContractAdminHtml(): string {
     </section>
     <section class="card">
       <h2>文面プレビュー</h2>
-      <p class="helper">Drive 出力の前に、現在の下書き値で HTML レンダリングした文面を確認できます。</p>
+      <p class="helper">Drive 出力の前に、現在の下書き値で HTML レンダリングした文面を確認できます。左のマッピングから入力欄へ直接ジャンプできます。</p>
       <div id="renderPreviewMeta" class="sample">プレビューを生成すると、想定ファイル名と保存先を表示します。</div>
       <div id="renderPreviewTabs" class="chip-list"></div>
-      <iframe id="renderPreviewFrame" title="文面プレビュー" style="width:100%; min-height:900px; border:1px solid var(--line); background:#fff;"></iframe>
+      <div class="preview-layout">
+        <aside class="preview-side">
+          <div class="actions" style="margin-top:0; margin-bottom:8px;">
+            <button id="downloadMappingBtn" type="button" class="ghost">テンプレートマッピングJSONを保存</button>
+          </div>
+          <div id="previewVariableSummary" class="summary-box">プレビューを生成すると、変数マッピングを表示します。</div>
+          <div id="previewVariableList" class="preview-variable-list"></div>
+        </aside>
+        <div class="preview-main">
+          <iframe id="renderPreviewFrame" title="文面プレビュー" style="width:100%; min-height:900px; border:1px solid var(--line); background:#fff;"></iframe>
+        </div>
+      </div>
     </section>
   </main>
   <script>
     const fieldDefinitions = ${fieldDefinitions};
+    const defaultCommonFieldKeys = new Set(${JSON.stringify(Array.from(CONTRACT_COMMON_FIELD_KEYS))});
     const issueKey = document.getElementById("issueKey");
     const previewBtn = document.getElementById("previewBtn");
     const preflightBtn = document.getElementById("preflightBtn");
@@ -9833,20 +9991,30 @@ function buildContractAdminHtml(): string {
     const editorSummary = document.getElementById("editorSummary");
     const editorFlow = document.getElementById("editorFlow");
     const editorMeta = document.getElementById("editorMeta");
+    const scopeSwitch = document.getElementById("scopeSwitch");
+    const scopeSummary = document.getElementById("scopeSummary");
     const editorSections = document.getElementById("editorSections");
     const preflightSummary = document.getElementById("preflightSummary");
     const preflightSteps = document.getElementById("preflightSteps");
     const renderPreviewMeta = document.getElementById("renderPreviewMeta");
     const renderPreviewTabs = document.getElementById("renderPreviewTabs");
     const renderPreviewFrame = document.getElementById("renderPreviewFrame");
+    const previewVariableSummary = document.getElementById("previewVariableSummary");
+    const previewVariableList = document.getElementById("previewVariableList");
+    const downloadMappingBtn = document.getElementById("downloadMappingBtn");
     const recentIssues = document.getElementById("recentIssues");
     const attentionIssues = document.getElementById("attentionIssues");
     const params = new URLSearchParams(window.location.search);
     let latestPreviewDocuments = [];
+    let activePreviewIndex = -1;
+    let activeEditorScope = "common";
+    let latestScopeKeys = { common: [], specific: [] };
 
-    renderEditor({}, fieldDefinitions.map((field) => field.key));
+    renderEditor({}, fieldDefinitions.map((field) => field.key), null);
     renderPreviewTabs.innerHTML = '<span class="helper">課題を読み込んで「文面プレビュー」を押すと、ここに文書プレビューを表示します。</span>';
     renderPreviewMeta.textContent = "プレビューを生成すると、想定ファイル名と保存先を表示します。";
+    previewVariableSummary.textContent = "プレビューを生成すると、変数マッピングを表示します。";
+    previewVariableList.innerHTML = '<span class="helper">まだマッピング情報はありません。</span>';
     renderPreviewFrame.srcdoc = "<html><body style='font-family:sans-serif;padding:24px;color:#6a6258;'>ここに文面プレビューが表示されます。</body></html>";
     loadRecentIssues();
     loadAttentionIssues();
@@ -9875,7 +10043,11 @@ function buildContractAdminHtml(): string {
         return;
       }
       renderEditorGuide(payload.editorGuide);
-      renderEditor(payload.draft || {}, payload.visibleFieldKeys || fieldDefinitions.map((field) => field.key));
+      renderEditor(
+        payload.draft || {},
+        payload.visibleFieldKeys || fieldDefinitions.map((field) => field.key),
+        { commonFieldKeys: payload.commonFieldKeys, specificFieldKeys: payload.specificFieldKeys }
+      );
       renderEditorMeta(payload);
       renderContractPreflight(payload.preflight);
       status.className = "status success";
@@ -9892,6 +10064,29 @@ function buildContractAdminHtml(): string {
         payload.warnings?.length ? "<br><strong>事前チェック:</strong><br>" + renderWarnings(payload.warnings) : "",
         payload.generatedDocuments?.length ? "<br><strong>生成済み文書:</strong><br>" + renderGeneratedDocuments(payload.generatedDocuments) : "",
       ].join("");
+    });
+
+    downloadMappingBtn.addEventListener("click", () => {
+      const preview = latestPreviewDocuments[activePreviewIndex];
+      if (!preview) {
+        status.className = "status error";
+        status.textContent = "先に文面プレビューを生成してください。";
+        return;
+      }
+      const payload = {
+        templateKey: preview.templateKey,
+        outputBasename: preview.outputBasename,
+        mappedInputs: preview.mappedInputs || [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (preview.templateKey || "template") + "_mapping.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      status.className = "status success";
+      status.textContent = "テンプレートマッピングJSONを保存しました。";
     });
 
     preflightBtn.addEventListener("click", async () => {
@@ -9963,6 +10158,12 @@ function buildContractAdminHtml(): string {
         }
         return;
       }
+      if (Array.isArray(payload.commonFieldKeys) || Array.isArray(payload.specificFieldKeys)) {
+        latestScopeKeys = {
+          common: Array.isArray(payload.commonFieldKeys) ? payload.commonFieldKeys : latestScopeKeys.common,
+          specific: Array.isArray(payload.specificFieldKeys) ? payload.specificFieldKeys : latestScopeKeys.specific,
+        };
+      }
       latestPreviewDocuments = payload.previews || [];
       renderDocumentPreviewTabs(latestPreviewDocuments);
       renderDocumentPreviewMeta(payload.previewReport, latestPreviewDocuments);
@@ -10003,19 +10204,78 @@ function buildContractAdminHtml(): string {
       ].join("");
     });
 
-    function renderEditor(draft, visibleFieldKeys) {
+    function renderEditor(draft, visibleFieldKeys, scopePayload) {
       const visibleSet = new Set(visibleFieldKeys || []);
+      const commonKeys = Array.isArray(scopePayload?.commonFieldKeys)
+        ? scopePayload.commonFieldKeys.filter((key) => visibleSet.has(key))
+        : Array.from(visibleSet).filter((key) => defaultCommonFieldKeys.has(key));
+      const commonKeySet = new Set(commonKeys);
+      const specificKeys = Array.isArray(scopePayload?.specificFieldKeys)
+        ? scopePayload.specificFieldKeys.filter((key) => visibleSet.has(key))
+        : Array.from(visibleSet).filter((key) => !commonKeySet.has(key));
+      latestScopeKeys = { common: commonKeys, specific: specificKeys };
+      if (activeEditorScope === "specific" && specificKeys.length === 0) {
+        activeEditorScope = "common";
+      }
+
+      const commonFields = fieldDefinitions.filter((field) => commonKeys.includes(field.key));
+      const specificFields = fieldDefinitions.filter((field) => specificKeys.includes(field.key));
+
+      editorSections.innerHTML = [
+        renderScopePanel("common", "共通入力", "すべての文書で再利用しやすい項目です。", commonFields, draft),
+        renderScopePanel("specific", "文書専用入力", "文書種別に依存する項目です。", specificFields, draft),
+      ].join("");
+      renderScopeSwitcher();
+      applyEditorScopeVisibility();
+      scopeSummary.textContent = "共通 " + commonFields.length + " 項目 / 専用 " + specificFields.length + " 項目";
+    }
+
+    function renderScopePanel(scope, title, description, fields, draft) {
+      const sections = groupFieldsBySection(fields);
+      const rows = Object.entries(sections).map(([section, sectionFields]) => {
+        return '<section class="panel scope-panel">'
+          + '<h2>' + escapeHtml(section) + '</h2>'
+          + sectionFields.map((field) => renderField(field, draft[field.key] || "")).join("")
+          + '</section>';
+      }).join("");
+      return '<section class="scope-block" data-editor-scope-panel="' + escapeHtml(scope) + '">'
+        + '<div class="summary-box"><strong>' + escapeHtml(title) + '</strong><br>' + escapeHtml(description) + '</div>'
+        + (rows || '<div class="helper">この文書種別では入力項目がありません。</div>')
+        + '</section>';
+    }
+
+    function groupFieldsBySection(fields) {
       const sections = {};
-      for (const field of fieldDefinitions.filter((item) => visibleSet.has(item.key))) {
+      for (const field of fields) {
         if (!sections[field.section]) sections[field.section] = [];
         sections[field.section].push(field);
       }
-      editorSections.innerHTML = Object.entries(sections).map(([section, fields]) => {
-        return '<section class="panel" style="margin-top:16px;">'
-          + '<h2>' + escapeHtml(section) + '</h2>'
-          + fields.map((field) => renderField(field, draft[field.key] || "")).join("")
-          + '</section>';
-      }).join("");
+      return sections;
+    }
+
+    function renderScopeSwitcher() {
+      const commonCount = latestScopeKeys.common.length;
+      const specificCount = latestScopeKeys.specific.length;
+      scopeSwitch.innerHTML = [
+        '<button type="button" class="chip ' + (activeEditorScope === "common" ? "active" : "") + '" data-scope-tab="common">共通入力 (' + commonCount + ')</button>',
+        '<button type="button" class="chip ' + (activeEditorScope === "specific" ? "active" : "") + '" data-scope-tab="specific"' + (specificCount === 0 ? ' disabled' : '') + '>文書専用入力 (' + specificCount + ')</button>',
+      ].join("");
+      scopeSwitch.querySelectorAll("[data-scope-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const scope = button.getAttribute("data-scope-tab");
+          if (scope !== "common" && scope !== "specific") return;
+          activeEditorScope = scope;
+          applyEditorScopeVisibility();
+          renderScopeSwitcher();
+        });
+      });
+    }
+
+    function applyEditorScopeVisibility() {
+      document.querySelectorAll("[data-editor-scope-panel]").forEach((panel) => {
+        const scope = panel.getAttribute("data-editor-scope-panel");
+        panel.style.display = scope === activeEditorScope ? "block" : "none";
+      });
     }
 
     function renderField(field, value) {
@@ -10085,6 +10345,13 @@ function buildContractAdminHtml(): string {
 
     function focusDraftField(fieldKey) {
       if (!fieldKey) return;
+      if (latestScopeKeys.specific.includes(fieldKey)) {
+        activeEditorScope = "specific";
+      } else if (latestScopeKeys.common.includes(fieldKey)) {
+        activeEditorScope = "common";
+      }
+      applyEditorScopeVisibility();
+      renderScopeSwitcher();
       const target = document.getElementById("draft_" + fieldKey);
       if (!target) return;
       target.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -10139,7 +10406,10 @@ function buildContractAdminHtml(): string {
       if (!previews || previews.length === 0) {
         renderPreviewTabs.innerHTML = '<span class="helper">プレビュー対象の文書がありません。</span>';
         renderPreviewMeta.textContent = "プレビュー対象の文書がありません。";
+        previewVariableSummary.textContent = "プレビュー対象の文書がありません。";
+        previewVariableList.innerHTML = '<span class="helper">マッピング対象の項目はありません。</span>';
         renderPreviewFrame.srcdoc = "<html><body style='font-family:sans-serif;padding:24px;color:#6a6258;'>プレビュー対象の文書がありません。</body></html>";
+        activePreviewIndex = -1;
         return;
       }
       renderPreviewTabs.innerHTML = previews.map((preview, index) => {
@@ -10169,7 +10439,11 @@ function buildContractAdminHtml(): string {
           const destination = preview.driveFolderLabel
             ? " / " + preview.driveFolderLabel + (preview.driveFolderKey ? " (" + preview.driveFolderKey + ")" : "")
             : "";
-          return "・" + (preview.outputBasename || preview.templateKey || "document") + destination;
+          const mappedCount = Array.isArray(preview.mappedInputs)
+            ? preview.mappedInputs.filter((item) => item.mapped && item.visible).length
+            : 0;
+          const mappingLabel = " / 入力マップ " + mappedCount + " 件";
+          return "・" + (preview.outputBasename || preview.templateKey || "document") + destination + mappingLabel;
         }).map(escapeHtml).join("<br>"));
       }
       renderPreviewMeta.innerHTML = lines.join("<br>");
@@ -10230,7 +10504,101 @@ function buildContractAdminHtml(): string {
     function openDocumentPreview(index) {
       const preview = latestPreviewDocuments[index];
       if (!preview) return;
+      activePreviewIndex = index;
+      renderPreviewTabs.querySelectorAll("[data-preview-index]").forEach((button) => {
+        const isActive = Number(button.getAttribute("data-preview-index") || "-1") === index;
+        button.classList.toggle("active", isActive);
+      });
+      renderPreviewVariableMappings(preview);
       renderPreviewFrame.srcdoc = preview.html || "<html><body>Preview unavailable</body></html>";
+      renderPreviewFrame.onload = () => {
+        bindPreviewVariableClickEvents();
+      };
+    }
+
+    function renderPreviewVariableMappings(preview) {
+      const mappedInputs = Array.isArray(preview?.mappedInputs) ? preview.mappedInputs : [];
+      if (!mappedInputs.length) {
+        previewVariableSummary.textContent = "このテンプレートは可視化できる変数マッピングがありません。";
+        previewVariableList.innerHTML = '<span class="helper">項目なし</span>';
+        return;
+      }
+      const visibleMapped = mappedInputs.filter((item) => item.mapped && item.visible);
+      const hiddenOrUnmapped = mappedInputs.length - visibleMapped.length;
+      previewVariableSummary.innerHTML = [
+        "<strong>テンプレート:</strong> " + escapeHtml(preview.templateKey || ""),
+        "<br><strong>入力に結びつく変数:</strong> " + escapeHtml(String(visibleMapped.length)),
+        hiddenOrUnmapped > 0 ? "<br><strong>補助/未接続変数:</strong> " + escapeHtml(String(hiddenOrUnmapped)) : "",
+      ].join("");
+      previewVariableList.innerHTML = mappedInputs.map((item) => {
+        const missing = !(item.mapped && item.visible);
+        const label = item.draftFieldLabel || item.draftFieldKey || "未マッピング";
+        const valuePreview = String(item.value || "").slice(0, 60);
+        const badge = item.group === "common"
+          ? "共通"
+          : item.group === "specific"
+            ? "専用"
+            : "補助";
+        return '<div class="preview-variable-item ' + (missing ? "missing" : "") + '">'
+          + '<div><strong>' + escapeHtml(item.templateVariable) + '</strong></div>'
+          + '<div class="meta">入力: ' + escapeHtml(label) + ' / 区分: ' + escapeHtml(badge) + '</div>'
+          + (valuePreview ? '<div class="meta">現在値: ' + escapeHtml(valuePreview) + '</div>' : "")
+          + '<div class="actions">'
+          + '<button type="button" class="ghost" data-map-variable="' + escapeHtml(item.templateVariable) + '">プレビュー上で強調</button>'
+          + (item.draftFieldKey && item.visible
+            ? '<button type="button" class="ghost" data-map-field="' + escapeHtml(item.draftFieldKey) + '">入力欄へ移動</button>'
+            : "")
+          + '</div>'
+          + '</div>';
+      }).join("");
+
+      previewVariableList.querySelectorAll("[data-map-field]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const fieldKey = button.getAttribute("data-map-field");
+          focusDraftField(fieldKey);
+        });
+      });
+      previewVariableList.querySelectorAll("[data-map-variable]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.getAttribute("data-map-variable");
+          highlightPreviewVariable(key);
+        });
+      });
+    }
+
+    function bindPreviewVariableClickEvents() {
+      const frameDoc = renderPreviewFrame.contentDocument;
+      if (!frameDoc) return;
+      frameDoc.querySelectorAll("[data-lb-map-key]").forEach((node) => {
+        node.addEventListener("click", () => {
+          const key = node.getAttribute("data-lb-map-key");
+          highlightPreviewVariable(key);
+        });
+      });
+    }
+
+    function highlightPreviewVariable(variableKey) {
+      if (!variableKey) return;
+      const frameDoc = renderPreviewFrame.contentDocument;
+      if (!frameDoc) return;
+      const escaped = cssEscape(variableKey);
+      const targets = Array.from(frameDoc.querySelectorAll('[data-lb-map-key="' + escaped + '"]'));
+      if (!targets.length) return;
+      targets.forEach((element) => {
+        element.style.outline = "2px solid #f59e0b";
+        element.style.background = "#fff5d6";
+      });
+      targets[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        targets.forEach((element) => {
+          element.style.outline = "";
+          element.style.background = "";
+        });
+      }, 1800);
+    }
+
+    function cssEscape(value) {
+      return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     }
 
     function renderWarnings(warnings) {
