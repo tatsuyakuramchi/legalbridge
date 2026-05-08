@@ -8,7 +8,7 @@ import { extractCsvHeaders, importOrderCsvForIssue, parseOrderCsv, parsePlanning
 import { generateOrderDocumentsFromIssue } from "../orders/generator";
 import { createBacklogSyncRun, createLegalRequest, findIssueWorkflowByIssueKey, findLegalRequestByBacklogKey, findManufacturingEventByBacklogIssueKey, findStaffBySlackUserId, findVendorByCode, getAdminDashboardSnapshot, listDepartmentWorkflowRules, listStaff, listStaffDepartments, listStampWorkflows, listVendors, matchVendor, saveGeneratedDocuments, saveIssueDocumentDraft, upsertDepartmentWorkflowRule, upsertStaff, upsertVendor } from "../db/repository";
 import { assignOrderItemBacklogIssueKey, createDeliveryEvent, findDeliveryEventByBacklogIssueKey, getDeliveryEventWithContext, getOrderItems, getOrderSummary } from "../db/orderRepository";
-import { resolveDriveFolderId, resolveDriveFolderLabel } from "../documents/driveFolders";
+import { getDefaultDriveFolderKey, listDriveFolderOptions, resolveDriveFolderId, resolveDriveFolderLabel } from "../documents/driveFolders";
 import { tryUploadToDrive } from "../documents/fileStorage";
 import { generateDeliveryDocuments } from "../documents/partialDeliveryGenerator";
 import { generateRoyaltyFromIssue, getRoyaltyIssueSnapshot, resolveRoyaltyLicenseCondition } from "../documents/royaltyGenerator";
@@ -36,6 +36,7 @@ import { getLocalRuntimeStatus, updateLocalComponentStatus } from "../local/stat
 import { createOptionalSlackClient } from "../slack/optionalClient";
 import { WebClient } from "@slack/web-api";
 import Papa from "papaparse";
+import prisma from "../db/client";
 
 let isManualBacklogSyncRunning = false;
 
@@ -43,6 +44,62 @@ export function createAdminRouter(): Router {
   const router = Router();
   const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
   const optionalSlackClient = createOptionalSlackClient(process.env.SLACK_BOT_TOKEN);
+
+  const CONTRACT_CAPABILITY_COLUMNS: ReadonlyArray<{ name: string; type: string }> = [
+    { name: "vendor_id", type: "TEXT" },
+    { name: "record_type", type: "TEXT" },
+    { name: "contract_category", type: "TEXT" },
+    { name: "contract_type", type: "TEXT" },
+    { name: "contract_title", type: "TEXT" },
+    { name: "document_number", type: "TEXT" },
+    { name: "condition_number", type: "TEXT" },
+    { name: "contract_status", type: "TEXT" },
+    { name: "effective_date", type: "DATE" },
+    { name: "expiration_date", type: "DATE" },
+    { name: "auto_renewal", type: "BOOLEAN" },
+    { name: "document_url", type: "TEXT" },
+    { name: "legalon_url", type: "TEXT" },
+    { name: "cloudsign_url", type: "TEXT" },
+    { name: "drive_url", type: "TEXT" },
+    { name: "caution_note", type: "TEXT" },
+    { name: "purchase_order_allowed", type: "BOOLEAN" },
+    { name: "license_condition_allowed", type: "BOOLEAN" },
+    { name: "original_work", type: "TEXT" },
+    { name: "product_name", type: "TEXT" },
+    { name: "territory", type: "TEXT" },
+    { name: "language", type: "TEXT" },
+    { name: "sublicense_allowed", type: "BOOLEAN" },
+    { name: "overseas_allowed", type: "BOOLEAN" },
+    { name: "translation_allowed", type: "BOOLEAN" },
+    { name: "publication_contract_allowed", type: "BOOLEAN" },
+    { name: "publication_condition_allowed", type: "BOOLEAN" },
+    { name: "work_name", type: "TEXT" },
+    { name: "media", type: "TEXT" },
+    { name: "scope", type: "TEXT" },
+    { name: "ebook_allowed", type: "BOOLEAN" },
+    { name: "merchandising_allowed", type: "BOOLEAN" },
+    { name: "video_adaptation_allowed", type: "BOOLEAN" },
+    { name: "game_adaptation_allowed", type: "BOOLEAN" },
+    { name: "created_at", type: "TIMESTAMP WITH TIME ZONE DEFAULT NOW()" },
+    { name: "updated_at", type: "TIMESTAMP WITH TIME ZONE DEFAULT NOW()" },
+  ];
+
+  const CONTRACT_WRITABLE_FIELDS: ReadonlyArray<string> = [
+    "record_type", "contract_category", "contract_type", "contract_title", "document_number", "condition_number",
+    "contract_status", "effective_date", "expiration_date", "auto_renewal", "document_url", "legalon_url",
+    "cloudsign_url", "drive_url", "caution_note", "purchase_order_allowed", "license_condition_allowed",
+    "original_work", "product_name", "territory", "language", "sublicense_allowed", "overseas_allowed",
+    "translation_allowed", "publication_contract_allowed", "publication_condition_allowed", "work_name", "media",
+    "scope", "ebook_allowed", "merchandising_allowed", "video_adaptation_allowed", "game_adaptation_allowed",
+  ];
+
+  async function ensureContractCapabilitiesColumns() {
+    for (const column of CONTRACT_CAPABILITY_COLUMNS) {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE contract_capabilities ADD COLUMN IF NOT EXISTS ${column.name} ${column.type}`
+      );
+    }
+  }
 
   router.get("/", async (_req: Request, res: Response) => {
     try {
@@ -393,6 +450,9 @@ export function createAdminRouter(): Router {
         approverSlackId: String(req.body?.approverSlackId ?? "").trim(),
         stampOperatorSlackId: String(req.body?.stampOperatorSlackId ?? "").trim(),
         intakeChannelId: String(req.body?.intakeChannelId ?? "").trim(),
+        defaultDriveFolderKey: String(req.body?.defaultDriveFolderKey ?? "").trim(),
+        driveFolderOptions: Array.isArray(req.body?.driveFolderOptions) ? req.body.driveFolderOptions : [],
+        departmentDriveFolderRules: Array.isArray(req.body?.departmentDriveFolderRules) ? req.body.departmentDriveFolderRules : [],
       });
       res.json({ ok: true, settings });
     } catch (error) {
@@ -597,14 +657,20 @@ export function createAdminRouter(): Router {
       }
 
       let createdTrackingIssueCount = 0;
+      let trackingIssuesWarning: string | null = null;
       if (type === "purchase_order" || type === "planning_order" || type === "publishing_order") {
-        const trackingIssues = await ensureOrderItemTrackingIssues({
-          parentIssue: issueWithFields,
-          legalRequestId: legalRequest.id,
-          summary,
-          counterparty: finalizedValues.counterparty,
-        });
-        createdTrackingIssueCount = trackingIssues.createdCount;
+        try {
+          const trackingIssues = await ensureOrderItemTrackingIssues({
+            parentIssue: issueWithFields,
+            legalRequestId: legalRequest.id,
+            summary,
+            counterparty: finalizedValues.counterparty,
+          });
+          createdTrackingIssueCount = trackingIssues.createdCount;
+        } catch (error) {
+          trackingIssuesWarning = error instanceof Error ? error.message : String(error);
+          console.warn("[Admin] 発注明細トラッキング課題同期をスキップします:", trackingIssuesWarning);
+        }
       }
 
       await saveIssueDocumentDraft(issue.issueKey, buildImportedDocumentDraft(type, sourceMode, summary, finalizedValues));
@@ -651,6 +717,7 @@ export function createAdminRouter(): Router {
         legalRequestId: legalRequest.id,
         importedOrderItemsCount,
         createdTrackingIssueCount,
+        trackingIssuesWarning,
         generatedDocuments: documents,
         nextActions: [
           {
@@ -786,6 +853,107 @@ export function createAdminRouter(): Router {
     }
     res.json({ ok: true, vendor });
   });
+
+  const listVendorContractsHandler = async (req: Request, res: Response) => {
+    try {
+      await ensureContractCapabilitiesColumns();
+      const vendorId = String(req.params.vendorId ?? "").trim();
+      const contracts = await prisma.$queryRawUnsafe(
+        `SELECT * FROM contract_capabilities WHERE vendor_id = $1 ORDER BY COALESCE(effective_date, created_at) DESC, created_at DESC`,
+        vendorId
+      );
+      res.json({ ok: true, count: Array.isArray(contracts) ? contracts.length : 0, contracts });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
+  const createVendorContractHandler = async (req: Request, res: Response) => {
+    try {
+      await ensureContractCapabilitiesColumns();
+      const vendorId = String(req.params.vendorId ?? "").trim();
+      const incoming = req.body ?? {};
+      const entries = CONTRACT_WRITABLE_FIELDS
+        .filter((field) => Object.prototype.hasOwnProperty.call(incoming, field))
+        .map((field) => [field, incoming[field]] as const);
+
+      const columns = ["vendor_id", ...entries.map(([field]) => field), "updated_at"];
+      const values = [vendorId, ...entries.map(([, value]) => value), new Date().toISOString()];
+      const placeholders = columns.map((_, index) => `$${index + 1}`);
+      const result = await prisma.$queryRawUnsafe(
+        `INSERT INTO contract_capabilities (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`,
+        ...values
+      );
+      const created = Array.isArray(result) ? result[0] : null;
+      res.json({ ok: true, contract: created });
+    } catch (error) {
+      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
+  const updateVendorContractHandler = async (req: Request, res: Response) => {
+    try {
+      await ensureContractCapabilitiesColumns();
+      const vendorId = String(req.params.vendorId ?? "").trim();
+      const contractId = String(req.params.contractId ?? "").trim();
+      const incoming = req.body ?? {};
+      const entries = CONTRACT_WRITABLE_FIELDS
+        .filter((field) => Object.prototype.hasOwnProperty.call(incoming, field))
+        .map((field) => [field, incoming[field]] as const);
+      if (entries.length === 0) {
+        res.status(400).json({ ok: false, error: "更新項目が指定されていません。" });
+        return;
+      }
+      const assignments = entries.map(([field], index) => `${field} = $${index + 1}`);
+      const values = entries.map(([, value]) => value);
+      values.push(new Date().toISOString(), vendorId, contractId);
+      const result = await prisma.$queryRawUnsafe(
+        `UPDATE contract_capabilities
+         SET ${assignments.join(", ")}, updated_at = $${entries.length + 1}
+         WHERE vendor_id = $${entries.length + 2} AND id::text = $${entries.length + 3}
+         RETURNING *`,
+        ...values
+      );
+      const updated = Array.isArray(result) ? result[0] : null;
+      if (!updated) {
+        res.status(404).json({ ok: false, error: "対象の契約書が見つかりません。" });
+        return;
+      }
+      res.json({ ok: true, contract: updated });
+    } catch (error) {
+      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
+  const deleteVendorContractHandler = async (req: Request, res: Response) => {
+    try {
+      await ensureContractCapabilitiesColumns();
+      const vendorId = String(req.params.vendorId ?? "").trim();
+      const contractId = String(req.params.contractId ?? "").trim();
+      const result = await prisma.$queryRawUnsafe(
+        `DELETE FROM contract_capabilities WHERE vendor_id = $1 AND id::text = $2 RETURNING *`,
+        vendorId,
+        contractId
+      );
+      const deleted = Array.isArray(result) ? result[0] : null;
+      if (!deleted) {
+        res.status(404).json({ ok: false, error: "対象の契約書が見つかりません。" });
+        return;
+      }
+      res.json({ ok: true, contract: deleted });
+    } catch (error) {
+      res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
+  router.get("/api/master/vendors/:vendorId/contracts", listVendorContractsHandler);
+  router.post("/api/master/vendors/:vendorId/contracts", createVendorContractHandler);
+  router.put("/api/master/vendors/:vendorId/contracts/:contractId", updateVendorContractHandler);
+  router.delete("/api/master/vendors/:vendorId/contracts/:contractId", deleteVendorContractHandler);
+  router.get("/api/masters/vendors/:vendorId/contracts", listVendorContractsHandler);
+  router.post("/api/masters/vendors/:vendorId/contracts", createVendorContractHandler);
+  router.put("/api/masters/vendors/:vendorId/contracts/:contractId", updateVendorContractHandler);
+  router.delete("/api/masters/vendors/:vendorId/contracts/:contractId", deleteVendorContractHandler);
 
   router.post("/api/masters/vendor/bootstrap", async (req: Request, res: Response) => {
     try {
@@ -1029,13 +1197,22 @@ export function createAdminRouter(): Router {
       });
 
       const legalRequest = await findLegalRequestByBacklogKey(issue.issueKey);
+      let trackingIssuesWarning: string | null = null;
       const trackingIssues = legalRequest
-        ? await ensureOrderItemTrackingIssues({
-            parentIssue: issue,
-            legalRequestId: legalRequest.id,
-            summary: legalRequest.summary,
-            counterparty: legalRequest.counterparty,
-          })
+        ? await (async () => {
+            try {
+              return await ensureOrderItemTrackingIssues({
+                parentIssue: issue,
+                legalRequestId: legalRequest.id,
+                summary: legalRequest.summary,
+                counterparty: legalRequest.counterparty,
+              });
+            } catch (error) {
+              trackingIssuesWarning = error instanceof Error ? error.message : String(error);
+              console.warn("[Admin] CSV取込後のトラッキング課題同期をスキップします:", trackingIssuesWarning);
+              return { createdCount: 0, updatedCount: 0 };
+            }
+          })()
         : { createdCount: 0, updatedCount: 0 };
 
       const generateDocuments = Boolean(req.body?.generateDocuments);
@@ -1050,6 +1227,7 @@ export function createAdminRouter(): Router {
         createdTrackingIssueCount: trackingIssues.createdCount,
         generated: generateDocuments,
         mode: imported.mode,
+        trackingIssuesWarning,
       });
     } catch (error) {
       res.status(400).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -1867,7 +2045,7 @@ export function createAdminRouter(): Router {
         outputBasename: item.outputBasename,
         driveFolderKey: item.driveFolderKey ?? null,
         driveFolderLabel: resolveDriveFolderLabel(item.driveFolderKey),
-        driveEnabled: Boolean(resolveDriveFolderId(item.driveFolderKey) && String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim()),
+        driveEnabled: Boolean(resolveDriveFolderId(item.driveFolderKey) && hasDriveAuthConfigured()),
         html: renderTemplateHtml(item.templateKey, item.variables),
       }));
 
@@ -3100,10 +3278,12 @@ async function buildContractPreflight(input: {
   const hasBlockingWarning = input.warnings.some((warning) => warning.level === "stop");
   const hasWarning = input.warnings.length > 0;
   const requiresVendorMaster = input.issueTypeName !== "NDA" && input.issueTypeName !== "個別利用許諾条件";
-  const driveFolderKey = resolveDriveFolderKey(input.legalRequest);
+  const driveFolderKey = resolveDriveFolderKey(input.legalRequest, input.staff);
   const driveFolderLabel = resolveDriveFolderLabel(driveFolderKey);
   const driveFolderId = resolveDriveFolderId(driveFolderKey);
   const hasDriveKeyFile = Boolean(String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim());
+  const driveAuthConfigured = hasDriveAuthConfigured();
+  const driveAuthLabel = hasDriveKeyFile ? "キー認証" : "ADC（Cloud Run / Workload Identity）";
 
   steps.push({
     key: "backlog",
@@ -3187,18 +3367,18 @@ async function buildContractPreflight(input: {
     });
   }
 
-  const driveStatus: ContractPreflightStatus = hasDriveKeyFile && driveFolderId
+  const driveStatus: ContractPreflightStatus = driveAuthConfigured && driveFolderId
     ? "ready"
-    : hasDriveKeyFile || driveFolderId
+    : driveAuthConfigured || driveFolderId
       ? "warn"
       : "warn";
   steps.push({
     key: "output",
     label: "出力先",
     status: driveStatus,
-    detail: hasDriveKeyFile && driveFolderId
-      ? `Drive保存先: ${driveFolderLabel} (${driveFolderKey})`
-      : `Drive保存は未完全です。フォルダ: ${driveFolderLabel} (${driveFolderKey}) / ${hasDriveKeyFile ? "サービスアカウントキーあり" : "サービスアカウントキー未設定"} / ${driveFolderId ? "フォルダIDあり" : "フォルダID未設定"}。ローカル生成は継続できます。`,
+    detail: driveAuthConfigured && driveFolderId
+      ? `Drive保存先: ${driveFolderLabel} (${driveFolderKey}) / 認証: ${driveAuthLabel}`
+      : `Drive保存は未完全です。フォルダ: ${driveFolderLabel} (${driveFolderKey}) / 認証: ${driveAuthConfigured ? driveAuthLabel : "未設定"} / ${driveFolderId ? "フォルダIDあり" : "フォルダID未設定"}。ローカル生成は継続できます。`,
   });
 
   const generatedDocuments = Array.isArray(input.workflow?.generatedDocuments)
@@ -3230,6 +3410,7 @@ async function buildContractPreflight(input: {
 function buildContractGenerationReport(input: {
   generatedDocuments: Array<{ name?: string; url?: string; localPath?: string }>;
   legalRequest?: Awaited<ReturnType<typeof findLegalRequestByBacklogKey>> | null;
+  staff?: Awaited<ReturnType<typeof findStaffBySlackUserId>> | null;
   statusUpdatedTo?: string | null;
 }): {
   summary: string;
@@ -3241,9 +3422,9 @@ function buildContractGenerationReport(input: {
   statusUpdatedTo: string | null;
   generatedDocuments: Array<{ name?: string; url?: string; localPath?: string }>;
 } {
-  const driveFolderKey = resolveDriveFolderKey(input.legalRequest);
+  const driveFolderKey = resolveDriveFolderKey(input.legalRequest, input.staff);
   const driveFolderLabel = resolveDriveFolderLabel(driveFolderKey);
-  const driveEnabled = Boolean(resolveDriveFolderId(driveFolderKey) && String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim());
+  const driveEnabled = Boolean(resolveDriveFolderId(driveFolderKey) && hasDriveAuthConfigured());
   const driveDocumentCount = input.generatedDocuments.filter((doc) => Boolean(doc.url)).length;
   const localDocumentCount = input.generatedDocuments.filter((doc) => Boolean(doc.localPath)).length;
   const summary = input.generatedDocuments.length > 0
@@ -4099,6 +4280,22 @@ async function syncDeliveryIssueStatusToCompleted(issueKey: string): Promise<{
   return { ok: true, statusName };
 }
 
+function hasDriveAuthConfigured(): boolean {
+  if (String(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ?? "").trim()) {
+    return true;
+  }
+  if (String(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "").trim()) {
+    return true;
+  }
+  if (String(process.env.K_SERVICE ?? "").trim()) {
+    return true;
+  }
+  return Boolean(
+    String(process.env.GOOGLE_CLOUD_PROJECT ?? "").trim()
+    || String(process.env.GCLOUD_PROJECT ?? "").trim(),
+  );
+}
+
 function parseMasterCsv(csvText: string): Array<Record<string, string>> {
   const sanitizedCsvText = String(csvText ?? "").replace(/^\uFEFF/, "");
   const parsed = Papa.parse<Record<string, string>>(sanitizedCsvText, {
@@ -4334,6 +4531,98 @@ function buildMasterAdminHtml(): string {
           <div id="vendorImportResult" class="import-progress" style="margin-top:12px;"></div>
         </div>
       </div>
+
+      <div class="panel">
+        <div class="section-heading">
+          <h2 style="margin-bottom:0;">締結済み契約書</h2>
+          <button id="addVendorContract" type="button" class="ghost" style="font-size:12px;padding:6px 12px;">契約書を追加</button>
+        </div>
+        <p id="selectedVendorInfo" class="sub" style="margin-top:0;">取引先を選択すると、ここに紐づく契約書を表示します。</p>
+        <div id="vendorContractsStatus" class="status"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>契約名</th><th>文書番号</th><th>契約区分</th><th>レコード種別</th><th>ステータス</th>
+                <th>有効開始日</th><th>有効終了日</th><th>自動更新</th><th>対象作品</th><th>対象製品</th>
+                <th>地域</th><th>言語</th><th>リンク</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="vendorContractsRows">
+              <tr><td colspan="14" style="text-align:center;padding:16px;color:var(--muted);">取引先を選択してください。</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <details id="vendorContractFormPanel" style="margin-top:12px;">
+          <summary style="cursor:pointer;font-weight:600;">契約書フォーム</summary>
+          <div style="padding-top:12px;">
+            <div class="row"><label>取引先</label><input id="vendorContractVendorName" type="text" readonly /></div>
+            <div class="grid two-col" style="gap:10px;">
+              <div class="row"><label>record_type</label><select id="vc_record_type"><option value="master_contract">master_contract</option><option value="license_condition">license_condition</option><option value="publication_condition">publication_condition</option></select></div>
+              <div class="row"><label>contract_category</label><select id="vc_contract_category"><option value="service">service</option><option value="license">license</option><option value="publication">publication</option></select></div>
+              <div class="row"><label>contract_type</label><select id="vc_contract_type"><option value="service_basic">service_basic</option><option value="license_basic">license_basic</option><option value="publication_license">publication_license</option></select></div>
+              <div class="row"><label>contract_status</label><select id="vc_contract_status"><option value="executed">executed</option><option value="expired">expired</option><option value="terminated">terminated</option><option value="draft">draft</option></select></div>
+            </div>
+            <div class="row"><label>contract_title</label><input id="vc_contract_title" type="text" /></div>
+            <div class="grid two-col" style="gap:10px;">
+              <div class="row"><label>document_number</label><input id="vc_document_number" type="text" /></div>
+              <div class="row"><label>condition_number</label><input id="vc_condition_number" type="text" /></div>
+              <div class="row"><label>effective_date</label><input id="vc_effective_date" type="date" /></div>
+              <div class="row"><label>expiration_date</label><input id="vc_expiration_date" type="date" /></div>
+            </div>
+            <div style="display:flex;gap:16px;margin-bottom:14px;">
+              <label class="inline-check"><input id="vc_auto_renewal" type="checkbox" /> auto_renewal</label>
+              <label class="inline-check"><input id="vc_purchase_order_allowed" type="checkbox" /> purchase_order_allowed</label>
+              <label class="inline-check"><input id="vc_license_condition_allowed" type="checkbox" /> license_condition_allowed</label>
+              <label class="inline-check"><input id="vc_publication_contract_allowed" type="checkbox" /> publication_contract_allowed</label>
+              <label class="inline-check"><input id="vc_publication_condition_allowed" type="checkbox" /> publication_condition_allowed</label>
+            </div>
+            <div class="grid two-col" style="gap:10px;">
+              <div class="row"><label>document_url</label><input id="vc_document_url" type="text" /></div>
+              <div class="row"><label>legalon_url</label><input id="vc_legalon_url" type="text" /></div>
+              <div class="row"><label>cloudsign_url</label><input id="vc_cloudsign_url" type="text" /></div>
+              <div class="row"><label>drive_url</label><input id="vc_drive_url" type="text" /></div>
+            </div>
+
+            <div id="vc_license_fields">
+              <div class="grid two-col" style="gap:10px;">
+                <div class="row"><label>original_work</label><input id="vc_original_work" type="text" /></div>
+                <div class="row"><label>product_name</label><input id="vc_product_name" type="text" /></div>
+                <div class="row"><label>territory</label><input id="vc_territory" type="text" /></div>
+                <div class="row"><label>language</label><input id="vc_language" type="text" /></div>
+              </div>
+              <div style="display:flex;gap:16px;margin-bottom:14px;">
+                <label class="inline-check"><input id="vc_sublicense_allowed" type="checkbox" /> sublicense_allowed</label>
+                <label class="inline-check"><input id="vc_overseas_allowed" type="checkbox" /> overseas_allowed</label>
+                <label class="inline-check"><input id="vc_translation_allowed" type="checkbox" /> translation_allowed</label>
+              </div>
+            </div>
+
+            <div id="vc_publication_fields">
+              <div class="grid two-col" style="gap:10px;">
+                <div class="row"><label>work_name</label><input id="vc_work_name" type="text" /></div>
+                <div class="row"><label>media</label><input id="vc_media" type="text" /></div>
+                <div class="row"><label>territory</label><input id="vc_pub_territory" type="text" /></div>
+                <div class="row"><label>language</label><input id="vc_pub_language" type="text" /></div>
+                <div class="row"><label>scope</label><input id="vc_scope" type="text" /></div>
+              </div>
+              <div style="display:flex;gap:16px;margin-bottom:14px;">
+                <label class="inline-check"><input id="vc_ebook_allowed" type="checkbox" /> ebook_allowed</label>
+                <label class="inline-check"><input id="vc_merchandising_allowed" type="checkbox" /> merchandising_allowed</label>
+                <label class="inline-check"><input id="vc_video_adaptation_allowed" type="checkbox" /> video_adaptation_allowed</label>
+                <label class="inline-check"><input id="vc_game_adaptation_allowed" type="checkbox" /> game_adaptation_allowed</label>
+              </div>
+            </div>
+
+            <div class="row"><label>caution_note</label><textarea id="vc_caution_note" rows="3"></textarea></div>
+            <div style="display:flex;gap:10px;">
+              <button id="saveVendorContract" type="button">💾 契約書を保存</button>
+              <button id="cancelVendorContract" type="button" class="ghost">キャンセル</button>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
 
     <!-- ===== Staff タブ ===== -->
@@ -4442,6 +4731,13 @@ function buildMasterAdminHtml(): string {
 
   <script>
     const params = new URLSearchParams(window.location.search);
+    let selectedVendor = null;
+    let vendorContracts = [];
+    let selectedVendorContract = null;
+    let isCreatingVendorContract = false;
+    let isEditingVendorContract = false;
+    let vendorContractFormData = {};
+    let isLoadingVendorContracts = false;
 
     // タブ切替
     function switchTab(name, btn) {
@@ -4543,6 +4839,10 @@ function buildMasterAdminHtml(): string {
       });
       vendorStatus.textContent = result.ok ? "✅ Vendorを保存しました。" : "❌ 保存失敗: " + result.error;
       vendorStatus.className = "status " + (result.ok ? "success" : "error");
+      if (result.ok && result.vendor) {
+        selectedVendor = result.vendor;
+        await refreshVendorContracts();
+      }
     });
 
     // ===== Staff保存 =====
@@ -4564,6 +4864,19 @@ function buildMasterAdminHtml(): string {
       staffStatus.textContent = result.ok ? "✅ Staffを保存しました。" : "❌ 保存失敗: " + result.error;
       staffStatus.className = "status " + (result.ok ? "success" : "error");
     });
+
+    document.getElementById("addVendorContract").addEventListener("click", () => {
+      if (!selectedVendor || !selectedVendor.id) {
+        document.getElementById("vendorContractsStatus").textContent = "先に取引先を選択してください。";
+        document.getElementById("vendorContractsStatus").className = "status error";
+        return;
+      }
+      openVendorContractForm(null);
+    });
+
+    document.getElementById("vc_record_type").addEventListener("change", applyContractRecordTypeVisibility);
+    document.getElementById("saveVendorContract").addEventListener("click", saveVendorContract);
+    document.getElementById("cancelVendorContract").addEventListener("click", closeVendorContractForm);
 
     // ===== Vendor CSV取込 =====
     document.getElementById("downloadVendorSample").addEventListener("click", () => {
@@ -4661,6 +4974,10 @@ function buildMasterAdminHtml(): string {
       document.getElementById("entityType").value = "corporation";
       document.getElementById("vendorStatus").textContent = "";
       document.getElementById("vendorStatus").className = "status";
+      selectedVendor = null;
+      vendorContracts = [];
+      renderVendorContracts();
+      closeVendorContractForm();
     }
 
     function clearStaffForm() {
@@ -4735,6 +5052,7 @@ function buildMasterAdminHtml(): string {
       const result = await fetchJson("/admin/api/masters/vendor/" + encodeURIComponent(vendorCode));
       if (!result.ok || !result.vendor) return;
       const v = result.vendor;
+      selectedVendor = v;
       document.getElementById("vendorCode").value = v.vendorCode || "";
       document.getElementById("vendorName").value = v.vendorName || "";
       document.getElementById("tradeName").value = v.tradeName || "";
@@ -4760,6 +5078,7 @@ function buildMasterAdminHtml(): string {
       document.getElementById("invoiceRegistrationNumber").value = v.invoiceRegistrationNumber || "";
       document.getElementById("vendorStatus").textContent = "✅ 読み込みました。";
       document.getElementById("vendorStatus").className = "status success";
+      await refreshVendorContracts();
       // Vendorタブに切替
       switchTab("vendor", document.querySelectorAll(".master-tab")[0]);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -4785,16 +5104,227 @@ function buildMasterAdminHtml(): string {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    async function refreshVendorContracts() {
+      const statusEl = document.getElementById("vendorContractsStatus");
+      if (!selectedVendor || !selectedVendor.id) {
+        vendorContracts = [];
+        renderVendorContracts();
+        return;
+      }
+      isLoadingVendorContracts = true;
+      statusEl.textContent = "契約書一覧を読み込み中...";
+      statusEl.className = "status";
+      const result = await fetchJson("/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts");
+      isLoadingVendorContracts = false;
+      if (!result.ok) {
+        statusEl.textContent = "❌ 契約書一覧の取得に失敗しました: " + (result.error || "unknown");
+        statusEl.className = "status error";
+        return;
+      }
+      vendorContracts = Array.isArray(result.contracts) ? result.contracts : [];
+      statusEl.textContent = "";
+      statusEl.className = "status";
+      renderVendorContracts();
+    }
+
+    function renderVendorContracts() {
+      const tbody = document.getElementById("vendorContractsRows");
+      const infoEl = document.getElementById("selectedVendorInfo");
+      if (!selectedVendor || !selectedVendor.id) {
+        infoEl.textContent = "取引先を選択すると、ここに紐づく契約書を表示します。";
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:16px;color:var(--muted);">取引先を選択してください。</td></tr>';
+        return;
+      }
+      infoEl.textContent = "選択中取引先: " + (selectedVendor.vendorName || "") + " (" + (selectedVendor.vendorCode || "") + ")";
+      if (isLoadingVendorContracts) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:16px;color:var(--muted);">読み込み中...</td></tr>';
+        return;
+      }
+      if (!vendorContracts.length) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:16px;color:var(--muted);">この取引先に紐づく締結済み契約書はまだ登録されていません。</td></tr>';
+        return;
+      }
+      tbody.innerHTML = vendorContracts.map(c => {
+        const links = [c.document_url, c.drive_url, c.legalon_url, c.cloudsign_url].filter(Boolean)
+          .map(url => '<a href="' + escapeHtml(url) + '" target="_blank" rel="noreferrer">link</a>')
+          .join(" / ");
+        return '<tr>'
+          + '<td>' + escapeHtml(c.contract_title || "") + '</td>'
+          + '<td>' + escapeHtml(c.document_number || "") + '</td>'
+          + '<td>' + escapeHtml(c.contract_category || "") + '</td>'
+          + '<td>' + escapeHtml(c.record_type || "") + '</td>'
+          + '<td>' + escapeHtml(c.contract_status || "") + '</td>'
+          + '<td>' + escapeHtml(c.effective_date || "") + '</td>'
+          + '<td>' + escapeHtml(c.expiration_date || "") + '</td>'
+          + '<td>' + (c.auto_renewal ? "あり" : "なし") + '</td>'
+          + '<td>' + escapeHtml(c.original_work || c.work_name || "") + '</td>'
+          + '<td>' + escapeHtml(c.product_name || "") + '</td>'
+          + '<td>' + escapeHtml(c.territory || "") + '</td>'
+          + '<td>' + escapeHtml(c.language || "") + '</td>'
+          + '<td style="font-size:12px;">' + (links || "-") + '</td>'
+          + '<td><button type="button" onclick="editVendorContract(\\'' + escapeHtml(String(c.id)) + '\\')">編集</button> <button type="button" class="ghost" onclick="deleteVendorContract(\\'' + escapeHtml(String(c.id)) + '\\')">削除</button></td>'
+          + '</tr>';
+      }).join("");
+    }
+
+    function applyContractRecordTypeVisibility() {
+      const recordType = val("vc_record_type");
+      document.getElementById("vc_license_fields").style.display = recordType === "license_condition" || recordType === "master_contract" ? "block" : "none";
+      document.getElementById("vc_publication_fields").style.display = recordType === "publication_condition" || recordType === "master_contract" ? "block" : "none";
+    }
+
+    function openVendorContractForm(contract) {
+      selectedVendorContract = contract;
+      isCreatingVendorContract = !contract;
+      isEditingVendorContract = Boolean(contract);
+      const data = contract || {
+        record_type: "master_contract",
+        contract_category: "service",
+        contract_type: "service_basic",
+        contract_status: "executed",
+      };
+      vendorContractFormData = data;
+      document.getElementById("vendorContractVendorName").value = selectedVendor?.vendorName || "";
+      setVal("vc_record_type", data.record_type || "master_contract");
+      setVal("vc_contract_category", data.contract_category || "service");
+      setVal("vc_contract_type", data.contract_type || "service_basic");
+      setVal("vc_contract_status", data.contract_status || "executed");
+      setVal("vc_contract_title", data.contract_title || "");
+      setVal("vc_document_number", data.document_number || "");
+      setVal("vc_condition_number", data.condition_number || "");
+      setVal("vc_effective_date", normalizeDateInput(data.effective_date));
+      setVal("vc_expiration_date", normalizeDateInput(data.expiration_date));
+      setVal("vc_document_url", data.document_url || "");
+      setVal("vc_legalon_url", data.legalon_url || "");
+      setVal("vc_cloudsign_url", data.cloudsign_url || "");
+      setVal("vc_drive_url", data.drive_url || "");
+      setVal("vc_original_work", data.original_work || "");
+      setVal("vc_product_name", data.product_name || "");
+      setVal("vc_territory", data.territory || "");
+      setVal("vc_language", data.language || "");
+      setVal("vc_work_name", data.work_name || "");
+      setVal("vc_media", data.media || "");
+      setVal("vc_pub_territory", data.territory || "");
+      setVal("vc_pub_language", data.language || "");
+      setVal("vc_scope", data.scope || "");
+      setVal("vc_caution_note", data.caution_note || "");
+      setChecked("vc_auto_renewal", Boolean(data.auto_renewal));
+      setChecked("vc_purchase_order_allowed", Boolean(data.purchase_order_allowed));
+      setChecked("vc_license_condition_allowed", Boolean(data.license_condition_allowed));
+      setChecked("vc_publication_contract_allowed", Boolean(data.publication_contract_allowed));
+      setChecked("vc_publication_condition_allowed", Boolean(data.publication_condition_allowed));
+      setChecked("vc_sublicense_allowed", Boolean(data.sublicense_allowed));
+      setChecked("vc_overseas_allowed", Boolean(data.overseas_allowed));
+      setChecked("vc_translation_allowed", Boolean(data.translation_allowed));
+      setChecked("vc_ebook_allowed", Boolean(data.ebook_allowed));
+      setChecked("vc_merchandising_allowed", Boolean(data.merchandising_allowed));
+      setChecked("vc_video_adaptation_allowed", Boolean(data.video_adaptation_allowed));
+      setChecked("vc_game_adaptation_allowed", Boolean(data.game_adaptation_allowed));
+      document.getElementById("vendorContractFormPanel").open = true;
+      applyContractRecordTypeVisibility();
+    }
+
+    function closeVendorContractForm() {
+      selectedVendorContract = null;
+      isCreatingVendorContract = false;
+      isEditingVendorContract = false;
+      document.getElementById("vendorContractFormPanel").open = false;
+    }
+
+    async function saveVendorContract() {
+      if (!selectedVendor || !selectedVendor.id) return;
+      const payload = {
+        record_type: val("vc_record_type"),
+        contract_category: val("vc_contract_category"),
+        contract_type: val("vc_contract_type"),
+        contract_title: val("vc_contract_title"),
+        document_number: val("vc_document_number"),
+        condition_number: val("vc_condition_number"),
+        contract_status: val("vc_contract_status"),
+        effective_date: emptyToNull(val("vc_effective_date")),
+        expiration_date: emptyToNull(val("vc_expiration_date")),
+        auto_renewal: document.getElementById("vc_auto_renewal").checked,
+        document_url: val("vc_document_url"),
+        legalon_url: val("vc_legalon_url"),
+        cloudsign_url: val("vc_cloudsign_url"),
+        drive_url: val("vc_drive_url"),
+        caution_note: val("vc_caution_note"),
+        purchase_order_allowed: document.getElementById("vc_purchase_order_allowed").checked,
+        license_condition_allowed: document.getElementById("vc_license_condition_allowed").checked,
+        original_work: val("vc_original_work"),
+        product_name: val("vc_product_name"),
+        territory: val("vc_record_type") === "publication_condition" ? val("vc_pub_territory") : val("vc_territory"),
+        language: val("vc_record_type") === "publication_condition" ? val("vc_pub_language") : val("vc_language"),
+        sublicense_allowed: document.getElementById("vc_sublicense_allowed").checked,
+        overseas_allowed: document.getElementById("vc_overseas_allowed").checked,
+        translation_allowed: document.getElementById("vc_translation_allowed").checked,
+        publication_contract_allowed: document.getElementById("vc_publication_contract_allowed").checked,
+        publication_condition_allowed: document.getElementById("vc_publication_condition_allowed").checked,
+        work_name: val("vc_work_name"),
+        media: val("vc_media"),
+        scope: val("vc_scope"),
+        ebook_allowed: document.getElementById("vc_ebook_allowed").checked,
+        merchandising_allowed: document.getElementById("vc_merchandising_allowed").checked,
+        video_adaptation_allowed: document.getElementById("vc_video_adaptation_allowed").checked,
+        game_adaptation_allowed: document.getElementById("vc_game_adaptation_allowed").checked,
+      };
+      const base = "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts";
+      const result = isEditingVendorContract && selectedVendorContract?.id
+        ? await requestJson(base + "/" + encodeURIComponent(String(selectedVendorContract.id)), "PUT", payload)
+        : await requestJson(base, "POST", payload);
+      const statusEl = document.getElementById("vendorContractsStatus");
+      if (!result.ok) {
+        statusEl.textContent = "❌ 契約書保存に失敗しました: " + (result.error || "unknown");
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "✅ 契約書を保存しました。";
+      statusEl.className = "status success";
+      closeVendorContractForm();
+      await refreshVendorContracts();
+    }
+
+    async function editVendorContract(contractId) {
+      const target = vendorContracts.find(item => String(item.id) === String(contractId));
+      if (!target) return;
+      openVendorContractForm(target);
+    }
+    window.editVendorContract = editVendorContract;
+
+    async function deleteVendorContract(contractId) {
+      if (!selectedVendor || !selectedVendor.id) return;
+      if (!confirm("この契約書を削除しますか？")) return;
+      const result = await requestJson(
+        "/admin/api/master/vendors/" + encodeURIComponent(selectedVendor.id) + "/contracts/" + encodeURIComponent(String(contractId)),
+        "DELETE"
+      );
+      const statusEl = document.getElementById("vendorContractsStatus");
+      if (!result.ok) {
+        statusEl.textContent = "❌ 契約書削除に失敗しました: " + (result.error || "unknown");
+        statusEl.className = "status error";
+        return;
+      }
+      statusEl.textContent = "✅ 契約書を削除しました。";
+      statusEl.className = "status success";
+      await refreshVendorContracts();
+    }
+    window.deleteVendorContract = deleteVendorContract;
+
     // ===== ユーティリティ =====
     function val(id) { return (document.getElementById(id) || {}).value || ""; }
+    function setVal(id, value) { const el = document.getElementById(id); if (el) el.value = value ?? ""; }
+    function setChecked(id, value) { const el = document.getElementById(id); if (el) el.checked = Boolean(value); }
+    function emptyToNull(value) { return String(value ?? "").trim() ? value : null; }
+    function normalizeDateInput(value) { return String(value ?? "").slice(0, 10); }
     async function fetchJson(url) { return (await fetch(url)).json(); }
-    async function postJson(url, body) {
+    async function requestJson(url, method, body) {
       return (await fetch(url, {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: body != null ? JSON.stringify(body) : undefined,
       })).json();
     }
+    async function postJson(url, body) { return requestJson(url, "POST", body); }
     function formatDate(v) {
       if (!v) return "-";
       const d = new Date(v);
@@ -4805,6 +5335,8 @@ function buildMasterAdminHtml(): string {
     }
 
     // 初期ロード
+    renderVendorContracts();
+    applyContractRecordTypeVisibility();
     refreshMasterSearch();
   </script>
 </body>
@@ -5072,8 +5604,8 @@ function getOrderCsvSample(profileId: string): {
       fileName: "publishing_bulk_sample.csv",
       csv: [
         "担当者ID,発注日,支払日,コード,支払先（ペンネーム）,書籍名,業務概要,業務詳細（仕様）,単価（税込）,数量,発注金額（税別）,初校締切,再校締切,校了予定,備考",
-        "U0123456789,2026/04/13,2026/05/20,VN-001,山田花子,空色文庫,本文組版,装画・本文192頁・A5,120000,1,120000,2026/04/15,2026/04/25,2026/04/30,初版制作",
-        "U0123456789,2026/04/13,2026/06/20,VN-002,佐藤次郎,星巡り図鑑,本文組版,図版調整・本文128頁・B6,85000,1,85000,2026/04/18,,2026/05/08,重版対応含む",
+        "U0123456789,2026/04/13,2026/05/20,2-20-0001,山田花子,空色文庫,本文組版,装画・本文192頁・A5,120000,1,120000,2026/04/15,2026/04/25,2026/04/30,初版制作",
+        "U0123456789,2026/04/13,2026/05/20,2-20-0002,佐藤次郎,星巡り図鑑,図版調整,図版調整・本文128頁・B6,85000,1,85000,2026/04/18,,2026/05/08,重版対応含む",
       ].join("\n"),
     };
   }
@@ -5099,7 +5631,7 @@ function getOrderCsvVariableMap(profileId: string): {
         "csvColumn,templateVariable,fieldPath,section,note",
         "担当者ID,STAFF_NAME / STAFF_EMAIL,staff master lookup,自社情報,Slack ID から Staff マスタを引いて担当者名とメールを補完",
         "発注日,ORDER_DATE_YEAR / ORDER_DATE_MONTH / ORDER_DATE_DAY,document header,文書ヘッダ,発注書の発行日として使用",
-        "支払日,PAYMENT_TERMS / items[].payment_date,planningContext payment date,支払条件,支払日を発注書の支払条件表示に使用",
+        "支払日,items[].payment_date,planningContext payment date,明細,明細の支払日列として表示（発注概要は「明細参照」固定）",
         "書籍名,ITEM_NAME,items[].description,明細,帳票の明細名として出力",
         "業務概要,ITEM_SPEC,items[].spec,明細,明細の仕様・補足へ反映",
         "業務詳細（仕様）,ITEM_SPEC,items[].spec,明細,業務概要と連結して仕様欄へ反映",
@@ -5108,7 +5640,7 @@ function getOrderCsvVariableMap(profileId: string): {
         "数量,qty,items[].quantity,明細,明細数量",
         "初校締切,ITEM_DUE_DATE,items[].dueDate,明細,明細納期の主候補",
         "再校締切,ITEM_DUE_DATE,items[].dueDate,明細,初校締切未入力時の補完候補",
-        "校了予定,ITEM_DUE_DATE,items[].dueDate,明細,最終締切の補助候補",
+        "校了予定,summaryDeliveryDate,planningContext groups[].finalDeadlineLabel,発注概要,発注概要の「納期」に表示",
         "支払先（ペンネーム）,VENDOR_NAME,VENDOR_NAME / items[].vendorLookup,相手方,取引先名の解決に使用",
         "コード,VENDOR_CODE,items[].vendorCode,相手方,同一取引先の束ね単位",
         "備考,REMARKS,REMARKS,備考,帳票全体の備考に追記候補",
@@ -7428,6 +7960,18 @@ function buildMappingAdminHtml(): string {
 
 function buildWorkflowSettingsAdminHtml(): string {
   const settings = getWorkflowSettings();
+  const driveFolderOptions = listDriveFolderOptions();
+  const defaultDriveFolderKey = settings.defaultDriveFolderKey || getDefaultDriveFolderKey();
+  const departmentDriveFolderRules = settings.departmentDriveFolderRules;
+  const driveFolderRows = (driveFolderOptions.length > 0 ? driveFolderOptions : [{ key: "", label: "", folderId: "" }])
+    .map((item) => `
+      <tr>
+        <td><input class="drive-folder-key" type="text" placeholder="legal" value="${escapeHtmlAttr(item.key)}" /></td>
+        <td><input class="drive-folder-label" type="text" placeholder="法務共有" value="${escapeHtmlAttr(item.label)}" /></td>
+        <td><input class="drive-folder-id" type="text" placeholder="Google Drive folderId" value="${escapeHtmlAttr(item.folderId ?? "")}" /></td>
+        <td><button type="button" class="ghost remove-drive-folder-row">削除</button></td>
+      </tr>
+    `).join("");
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -7457,6 +8001,57 @@ function buildWorkflowSettingsAdminHtml(): string {
           <button id="saveWorkflowSettingsBtn" type="button">設定を保存</button>
         </div>
         <div id="workflowSettingsStatus" class="status"></div>
+      </section>
+      <section class="panel">
+        <h2>Google Drive 保存先設定</h2>
+        <p class="note">出力文書の保存先フォルダを管理します。文書作成時に指定された保存先キーをもとに、ここで設定した Google Drive フォルダへ保存します。</p>
+        <div class="row">
+          <label for="defaultDriveFolderKey">既定の保存先キー</label>
+          <input id="defaultDriveFolderKey" type="text" list="driveFolderKeyOptions" placeholder="legal" value="${escapeHtmlAttr(defaultDriveFolderKey)}" />
+          <datalist id="driveFolderKeyOptions"></datalist>
+        </div>
+        <div class="preview">
+          <table>
+            <thead>
+              <tr>
+                <th>保存先キー</th>
+                <th>表示名</th>
+                <th>Google Drive Folder ID</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="driveFolderTableBody">${driveFolderRows}</tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="addDriveFolderRowBtn" type="button" class="ghost">保存先を追加</button>
+        </div>
+        <p class="note">例: legal, license, outsourcing のような保存先キーを登録しておくと、文書出力時にキーごとの Google Drive フォルダを選べます。</p>
+        <h3>部署ごとの既定保存先</h3>
+        <p class="note">Staff マスターの部署名または部署コードごとに、保存先キーを割り当てます。文書側で保存先が未指定の場合だけ、この部署設定にフォールバックします。</p>
+        <div class="preview">
+          <table>
+            <thead>
+              <tr>
+                <th>部署名</th>
+                <th>部署コード</th>
+                <th>保存先キー</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="departmentDriveFolderTableBody">${(departmentDriveFolderRules.length > 0 ? departmentDriveFolderRules : [{ department: "", departmentCode: "", driveFolderKey: "" }]).map((rule) => `
+              <tr>
+                <td><input class="dept-drive-department" type="text" list="departmentOptions" placeholder="営業部" value="${escapeHtmlAttr(rule.department)}" /></td>
+                <td><input class="dept-drive-department-code" type="text" placeholder="SALES" value="${escapeHtmlAttr(rule.departmentCode)}" /></td>
+                <td><input class="dept-drive-folder-key" type="text" list="driveFolderKeyOptions" placeholder="sales" value="${escapeHtmlAttr(rule.driveFolderKey)}" /></td>
+                <td><button type="button" class="ghost remove-dept-drive-row">削除</button></td>
+              </tr>
+            `).join("")}</tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="addDepartmentDriveRowBtn" type="button" class="ghost">部署保存先を追加</button>
+        </div>
       </section>
       <section class="panel">
         <h2>部署別設定</h2>
@@ -7503,11 +8098,26 @@ function buildWorkflowSettingsAdminHtml(): string {
     </div>
   </div>
   <script>
+    document.getElementById("addDriveFolderRowBtn").addEventListener("click", () => {
+      appendDriveFolderRow({ key: "", label: "", folderId: "" });
+      syncDriveFolderKeyOptions();
+    });
+    document.getElementById("addDepartmentDriveRowBtn").addEventListener("click", () => {
+      appendDepartmentDriveRow({ department: "", departmentCode: "", driveFolderKey: "" });
+    });
+
+    bindDriveFolderRowButtons();
+    bindDepartmentDriveRowButtons();
+    syncDriveFolderKeyOptions();
+
     document.getElementById("saveWorkflowSettingsBtn").addEventListener("click", async () => {
       const result = await postJson("/admin/api/settings/workflow", {
         intakeChannelId: value("intakeChannelId"),
         approverSlackId: value("approverSlackId"),
         stampOperatorSlackId: value("stampOperatorSlackId"),
+        defaultDriveFolderKey: value("defaultDriveFolderKey"),
+        driveFolderOptions: readDriveFolderRows(),
+        departmentDriveFolderRules: readDepartmentDriveRows(),
       });
       document.getElementById("workflowSettingsStatus").textContent = result.ok ? "ワークフロー設定を保存しました。" : "保存失敗: " + result.error;
     });
@@ -7544,6 +8154,25 @@ function buildWorkflowSettingsAdminHtml(): string {
         option.value = department;
         datalist.appendChild(option);
       });
+      if (result.settings) {
+        document.getElementById("intakeChannelId").value = result.settings.intakeChannelId || "";
+        document.getElementById("approverSlackId").value = result.settings.approverSlackId || "";
+        document.getElementById("stampOperatorSlackId").value = result.settings.stampOperatorSlackId || "";
+        document.getElementById("defaultDriveFolderKey").value = result.settings.defaultDriveFolderKey || document.getElementById("defaultDriveFolderKey").value || "";
+        if (Array.isArray(result.settings.driveFolderOptions) && result.settings.driveFolderOptions.length > 0) {
+          const driveTable = document.getElementById("driveFolderTableBody");
+          driveTable.innerHTML = "";
+          result.settings.driveFolderOptions.forEach((item) => appendDriveFolderRow(item));
+          bindDriveFolderRowButtons();
+          syncDriveFolderKeyOptions();
+        }
+        if (Array.isArray(result.settings.departmentDriveFolderRules) && result.settings.departmentDriveFolderRules.length > 0) {
+          const departmentDriveTable = document.getElementById("departmentDriveFolderTableBody");
+          departmentDriveTable.innerHTML = "";
+          result.settings.departmentDriveFolderRules.forEach((item) => appendDepartmentDriveRow(item));
+          bindDepartmentDriveRowButtons();
+        }
+      }
       (result.rules || []).forEach((rule) => {
         const tr = document.createElement("tr");
         tr.innerHTML = [
@@ -7583,6 +8212,110 @@ function buildWorkflowSettingsAdminHtml(): string {
         "実行（押印）ID: " + (assignment.stampOperatorSlackId || "未解決"),
         "解決元: " + (assignment.source || "不明"),
       ].join("\\n");
+    }
+
+    function appendDriveFolderRow(item) {
+      const body = document.getElementById("driveFolderTableBody");
+      const tr = document.createElement("tr");
+      tr.innerHTML = [
+        "<td><input class='drive-folder-key' type='text' placeholder='legal' value='" + escapeHtml(item.key || "") + "' /></td>",
+        "<td><input class='drive-folder-label' type='text' placeholder='法務共有' value='" + escapeHtml(item.label || "") + "' /></td>",
+        "<td><input class='drive-folder-id' type='text' placeholder='Google Drive folderId' value='" + escapeHtml(item.folderId || "") + "' /></td>",
+        "<td><button type='button' class='ghost remove-drive-folder-row'>削除</button></td>",
+      ].join("");
+      body.appendChild(tr);
+      tr.querySelectorAll("input").forEach((input) => input.addEventListener("input", syncDriveFolderKeyOptions));
+      tr.querySelector(".remove-drive-folder-row").addEventListener("click", () => {
+        tr.remove();
+        if (!document.querySelector("#driveFolderTableBody tr")) {
+          appendDriveFolderRow({ key: "", label: "", folderId: "" });
+        }
+        syncDriveFolderKeyOptions();
+      });
+    }
+
+    function bindDriveFolderRowButtons() {
+      document.querySelectorAll("#driveFolderTableBody tr").forEach((tr) => {
+        tr.querySelectorAll("input").forEach((input) => input.addEventListener("input", syncDriveFolderKeyOptions));
+        const removeButton = tr.querySelector(".remove-drive-folder-row");
+        if (removeButton && !removeButton.dataset.bound) {
+          removeButton.dataset.bound = "1";
+          removeButton.addEventListener("click", () => {
+            tr.remove();
+            if (!document.querySelector("#driveFolderTableBody tr")) {
+              appendDriveFolderRow({ key: "", label: "", folderId: "" });
+            }
+            syncDriveFolderKeyOptions();
+          });
+        }
+      });
+    }
+
+    function readDriveFolderRows() {
+      return Array.from(document.querySelectorAll("#driveFolderTableBody tr"))
+        .map((tr) => ({
+          key: tr.querySelector(".drive-folder-key").value.trim(),
+          label: tr.querySelector(".drive-folder-label").value.trim(),
+          folderId: tr.querySelector(".drive-folder-id").value.trim(),
+        }))
+        .filter((item) => item.key || item.label || item.folderId)
+        .filter((item) => item.key && item.label && item.folderId);
+    }
+
+    function appendDepartmentDriveRow(item) {
+      const body = document.getElementById("departmentDriveFolderTableBody");
+      const tr = document.createElement("tr");
+      tr.innerHTML = [
+        "<td><input class='dept-drive-department' type='text' list='departmentOptions' placeholder='営業部' value='" + escapeHtml(item.department || "") + "' /></td>",
+        "<td><input class='dept-drive-department-code' type='text' placeholder='SALES' value='" + escapeHtml(item.departmentCode || "") + "' /></td>",
+        "<td><input class='dept-drive-folder-key' type='text' list='driveFolderKeyOptions' placeholder='sales' value='" + escapeHtml(item.driveFolderKey || "") + "' /></td>",
+        "<td><button type='button' class='ghost remove-dept-drive-row'>削除</button></td>",
+      ].join("");
+      body.appendChild(tr);
+      const removeButton = tr.querySelector(".remove-dept-drive-row");
+      removeButton.addEventListener("click", () => {
+        tr.remove();
+        if (!document.querySelector("#departmentDriveFolderTableBody tr")) {
+          appendDepartmentDriveRow({ department: "", departmentCode: "", driveFolderKey: "" });
+        }
+      });
+    }
+
+    function bindDepartmentDriveRowButtons() {
+      document.querySelectorAll("#departmentDriveFolderTableBody tr").forEach((tr) => {
+        const removeButton = tr.querySelector(".remove-dept-drive-row");
+        if (removeButton && !removeButton.dataset.bound) {
+          removeButton.dataset.bound = "1";
+          removeButton.addEventListener("click", () => {
+            tr.remove();
+            if (!document.querySelector("#departmentDriveFolderTableBody tr")) {
+              appendDepartmentDriveRow({ department: "", departmentCode: "", driveFolderKey: "" });
+            }
+          });
+        }
+      });
+    }
+
+    function readDepartmentDriveRows() {
+      return Array.from(document.querySelectorAll("#departmentDriveFolderTableBody tr"))
+        .map((tr) => ({
+          department: tr.querySelector(".dept-drive-department").value.trim(),
+          departmentCode: tr.querySelector(".dept-drive-department-code").value.trim(),
+          driveFolderKey: tr.querySelector(".dept-drive-folder-key").value.trim(),
+        }))
+        .filter((item) => item.department || item.departmentCode || item.driveFolderKey)
+        .filter((item) => (item.department || item.departmentCode) && item.driveFolderKey);
+    }
+
+    function syncDriveFolderKeyOptions() {
+      const datalist = document.getElementById("driveFolderKeyOptions");
+      const rows = readDriveFolderRows();
+      datalist.innerHTML = "";
+      rows.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.key;
+        datalist.appendChild(option);
+      });
     }
 
     function value(id) { return document.getElementById(id).value; }
